@@ -988,3 +988,164 @@ data_ACOD1 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, d
 ts_ACOD1 <- ts(data_ACOD1)
 grangertest(ACOD1 ~ NFKBIA, order = 1, data = ts_ACOD1)
 grangertest(NFKBIA ~ ACOD1, order = 1, data = ts_ACOD1)
+
+
+
+
+
+#regressions:
+#################################################################################################################
+#NFKBIA
+#IL1B
+#both baseline
+model_IL1B_ns_NFKBIA_ns <- lm(IL1B_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL1B_ns_NFKBIA_ns)
+
+#NFKBIA
+#IL1B
+#both stimulated
+model_IL1B_s_NFKBIA_s <- lm(IL1B_s ~ NFKBIA_s, data = data_for_regression)
+summary(model_IL1B_s_NFKBIA_s)
+
+#NFKBIA
+#IL1B
+#baseline suppression and IL1B response
+model_IL1B_s_NFKBIA_ns <- lm(IL1B_s ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL1B_s_NFKBIA_ns)
+
+#################################################################################################################
+
+
+# Direct regression analysis for specified genes only
+# Three models for each gene: baseline-baseline, stimulated-stimulated, stimulated-baseline
+
+#################################################################################################################
+# TNF regressions
+#################################################################################################################
+# TNF baseline vs baseline
+model_TNF_ns_TNF_ns <- lm(TNF_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_TNF_ns_TNF_ns)
+# TNF stimulated vs stimulated
+model_TNF_s_TNF_s <- lm(TNF_s ~ NFKBIA_s, data = data_for_regression)
+summary(model_TNF_s_TNF_s)
+# TNF stimulated vs baseline
+model_TNF_s_TNF_ns <- lm(TNF_s ~ NFKBIA_s, data = data_for_regression)
+summary(model_TNF_s_TNF_ns)
+
+
+
+
+# TNF
+model_TNF_ns_NFKBIA_ns <- lm(TNF_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_TNF_ns_NFKBIA_ns)
+
+# IL6
+model_IL6_ns_NFKBIA_ns <- lm(IL6_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL6_ns_NFKBIA_ns)
+
+# IL1B
+model_IL1B_ns_NFKBIA_ns <- lm(IL1B_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL1B_ns_NFKBIA_ns)
+
+# MAP3K7
+model_MAP3K7_ns_NFKBIA_ns <- lm(MAP3K7_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_MAP3K7_ns_NFKBIA_ns)
+
+# CXCL3
+model_CXCL3_ns_NFKBIA_ns <- lm(CXCL3_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_CXCL3_ns_NFKBIA_ns)
+
+# CCL4
+model_CCL4_ns_NFKBIA_ns <- lm(CCL4_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_CCL4_ns_NFKBIA_ns)
+
+# CXCL1
+model_CXCL1_ns_NFKBIA_ns <- lm(CXCL1_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_CXCL1_ns_NFKBIA_ns)
+
+# F3
+model_F3_ns_NFKBIA_ns <- lm(F3_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_F3_ns_NFKBIA_ns)
+
+# DLGAP3
+model_DLGAP3_ns_NFKBIA_ns <- lm(DLGAP3_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_DLGAP3_ns_NFKBIA_ns)
+
+# CCL4L2
+model_CCL4L2_ns_NFKBIA_ns <- lm(CCL4L2_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_CCL4L2_ns_NFKBIA_ns)
+
+# CXCL2
+model_CXCL2_ns_NFKBIA_ns <- lm(CXCL2_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_CXCL2_ns_NFKBIA_ns)
+
+# DUSP2
+model_DUSP2_ns_NFKBIA_ns <- lm(DUSP2_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_DUSP2_ns_NFKBIA_ns)
+
+# RYR3
+model_RYR3_ns_NFKBIA_ns <- lm(RYR3_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_RYR3_ns_NFKBIA_ns)
+
+# ARL5B
+model_ARL5B_ns_NFKBIA_ns <- lm(ARL5B_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_ARL5B_ns_NFKBIA_ns)
+
+# ACOD1
+model_ACOD1_ns_NFKBIA_ns <- lm(ACOD1_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_ACOD1_ns_NFKBIA_ns)
+
+
+# Load required library
+library(writexl)
+
+# Manually extract precise p-values and adjusted R²
+summary_table <- data.frame(
+  Gene = c("TNF", "IL6", "IL1B", "MAP3K7", "CXCL3", "CCL4", "CXCL1", 
+           "F3", "DLGAP3", "CCL4L2", "CXCL2", "DUSP2", "RYR3", "ARL5B", "ACOD1"),
+  P_Value = c(
+    summary(model_TNF_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_IL6_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_IL1B_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_MAP3K7_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_CXCL3_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_CCL4_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_CXCL1_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_F3_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_DLGAP3_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_CCL4L2_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_CXCL2_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_DUSP2_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_RYR3_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_ARL5B_ns_NFKBIA_ns)$coefficients[2,4],
+    summary(model_ACOD1_ns_NFKBIA_ns)$coefficients[2,4]
+  ),
+  Adj_R_Squared = c(
+    summary(model_TNF_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_IL6_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_IL1B_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_MAP3K7_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_CXCL3_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_CCL4_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_CXCL1_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_F3_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_DLGAP3_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_CCL4L2_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_CXCL2_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_DUSP2_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_RYR3_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_ARL5B_ns_NFKBIA_ns)$adj.r.squared,
+    summary(model_ACOD1_ns_NFKBIA_ns)$adj.r.squared
+  )
+)
+
+# Format p-values with scientific notation if very small, but not rounded to 0
+summary_table$P_Value <- format(summary_table$P_Value, scientific = TRUE, digits = 8)
+summary_table$Adj_R_Squared <- round(summary_table$Adj_R_Squared, 4)
+
+# Save to Excel
+write_xlsx(summary_table, path = "regression_summary_exact_p.xlsx")
+
+# Confirmation
+print("Saved summary with exact p-values to 'regression_summary_exact_p.xlsx'")
+
