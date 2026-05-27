@@ -1,0 +1,990 @@
+#################################################################################################################
+#NFKBIA
+#IL1B
+#both baseline
+model_IL1B_ns_NFKBIA_ns <- lm(IL1B_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL1B_ns_NFKBIA_ns)
+
+#NFKBIA
+#IL1B
+#both stimulated
+model_IL1B_s_NFKBIA_s <- lm(IL1B_s ~ NFKBIA_s, data = data_for_regression)
+summary(model_IL1B_s_NFKBIA_s)
+
+#NFKBIA
+#IL1B
+#baseline suppression and IL1B response
+model_IL1B_s_NFKBIA_ns <- lm(IL1B_s ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL1B_s_NFKBIA_ns)
+
+#################################################################################################################
+
+
+
+
+NFKB_genes_FM <- read.table(pipe("pbpaste"), sep = "\t", header = TRUE, row.names = 1)
+
+expression_data <- t(NFKB_genes_FM[8:28,])
+phenotypes <- t(NFKB_genes_FM[1:7,])
+
+
+library(pheatmap)
+NFKB_genesandgroup_only <- read.table(pipe("pbpaste"), sep = "\t", header = TRUE, row.names = 1)
+pheatmap(NFKB_genesandgroup_only, color=colorRampPalette(brewer.pal(6,name="PuOr"))(12))
+pheatmap()
+
+#lm(outcome ~ predictor)
+
+##linear regression
+data_for_regression <- read.table(pipe("pbpaste"), sep = "\t", header = T, row.names = 1)
+
+# IL6 as outcome
+model_IL6_NFKBIZ <- lm(IL6_s ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_IL6_NFKBIZ)
+model_IL6_NFKBIA <- lm(IL6_s ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL6_NFKBIA)
+
+# TNF as outcome
+model_TNF_NFKBIZ <- lm(TNF_s ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_TNF_NFKBIZ)
+model_TNF_NFKBIA <- lm(TNF_s ~ NFKBIA_ns, data = data_for_regression)
+summary(model_TNF_NFKBIA)
+
+# IL1B as outcome
+model_IL1B_NFKBIZ <- lm(IL1B_s ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_IL1B_NFKBIZ)
+model_IL1B_NFKBIA <- lm(IL1B_s ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL1B_NFKBIA)
+#the more NFKBIA and NFKBIZ at the baseline the less 
+
+
+
+
+
+# Load the ggplot2 package
+library(ggplot2)
+
+# NFKBIZ as predictor
+# Plot for IL6 ~ NFKBIZ
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = IL6_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of IL6 on NFKBIZ",
+       x = "NFKBIZ",
+       y = "IL6") +
+  theme_minimal()
+
+# Plot for TNF ~ NFKBIZ
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = TNF_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Regression of TNF on NFKBIZ",
+       x = "NFKBIZ",
+       y = "TNF") +
+  theme_minimal()
+
+# Plot for IL1B ~ NFKBIZ
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = IL1B_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B on NFKBIZ",
+       x = "NFKBIZ",
+       y = "IL1B") +
+  theme_minimal()
+
+# NFKBIA as predictor
+# Plot for IL6 ~ NFKBIA
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = IL6_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of IL6 on NFKBIA",
+       x = "NFKBIA",
+       y = "IL6") +
+  theme_minimal()
+
+# Plot for TNF ~ NFKBIA
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = TNF_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Regression of TNF on NFKBIA",
+       x = "NFKBIA",
+       y = "TNF") +
+  theme_minimal()
+
+# Plot for IL1B ~ NFKBIA
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = IL1B_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B on NFKBIA",
+       x = "NFKBIA",
+       y = "IL1B") +
+  theme_minimal()
+
+
+
+model_IL1B_NFKBIZ_s <- lm(IL1B_s ~ NFKBIZ_s, data = data_for_regression)
+summary(model_IL1B_NFKBIZ_s)
+model_IL1B_NFKBIA_s <- lm(IL1B_s ~ NFKBIA_s, data = data_for_regression)
+summary(model_IL1B_NFKBIA_s)
+
+ggplot(data_for_regression, aes(x = NFKBIA_s, y = IL1B_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B on NFKBIA",
+       x = "NFKBIA",
+       y = "IL1B") +
+  theme_minimal()
+
+
+model_IL1B_ns_NFKBIZ_ns <- lm(IL1B_ns ~ NFKBIZ_ns , data = data_for_regression)
+summary(model_IL1B_ns_NFKBIZ_ns)
+#################################################################################################################
+#NFKBIA
+#both baseline
+model_IL1B_ns_NFKBIA_ns <- lm(IL1B_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL1B_ns_NFKBIA_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = IL1B_ns)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B (ns) on NFKBIA (ns)",
+       x = "NFKBIA",
+       y = "IL1B") +
+  theme_minimal()
+
+#the higher the NFKBIA the higher IL1B (more inhibition = more inflammation)
+
+
+# Call:
+#   lm(formula = IL1B_ns ~ NFKBIA_ns, data = data_for_regression)
+# 
+# Residuals:
+#   Min      1Q  Median      3Q     Max 
+# -183.67  -54.94   -2.21   28.69  233.59 
+# 
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept) -43.62381   16.14758  -2.702  0.00848 ** 
+#   NFKBIA_ns     0.34966    0.02206  15.849  < 2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 79.06 on 77 degrees of freedom
+# Multiple R-squared:  0.7654,	Adjusted R-squared:  0.7623 
+# F-statistic: 251.2 on 1 and 77 DF,  p-value: < 2.2e-16
+
+
+#NFKBIA
+#both stimulated
+model_IL1B_s_NFKBIA_s <- lm(IL1B_s ~ NFKBIA_s, data = data_for_regression)
+summary(model_IL1B_s_NFKBIA_s)
+
+ggplot(data_for_regression, aes(x = NFKBIA_s, y = IL1B_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B (s) on NFKBIA (s)",
+       x = "NFKBIA",
+       y = "IL1B") +
+  theme_minimal()
+
+#the higher the NFKBIA the higher IL1B (more inhibition = more inflammation even after the stimulation)
+
+# 
+# Call:
+#   lm(formula = IL1B_s ~ NFKBIA_s, data = data_for_regression)
+# 
+# Residuals:
+#   Min      1Q  Median      3Q     Max 
+# -5119.3 -2045.6   -25.2  1570.5  7709.5 
+# 
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept) -164.7865  1579.0829  -0.104    0.917    
+# NFKBIA_s       0.8560     0.1204   7.112  5.1e-10 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 2595 on 77 degrees of freedom
+# Multiple R-squared:  0.3965,	Adjusted R-squared:  0.3886 
+# F-statistic: 50.58 on 1 and 77 DF,  p-value: 5.096e-10
+
+
+#NFKBIA
+#baseline suppression and IL1B response
+model_IL1B_s_NFKBIA_ns <- lm(IL1B_s ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL1B_s_NFKBIA_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = IL1B_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B (s) on NFKBIA (ns)",
+       x = "NFKBIA",
+       y = "IL1B") +
+  theme_minimal()
+
+#the higher the NFKBIA the lower IL1B after the LPS response
+
+
+#################################################################################################################
+#NFKBIZ
+#both baseline
+model_IL1B_ns_NFKBIZ_ns <- lm(IL1B_ns ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_IL1B_ns_NFKBIZ_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = IL1B_ns)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B (ns) on NFKBIZ (ns)",
+       x = "NFKBIZ",
+       y = "IL1B") +
+  theme_minimal()
+
+#the higher the NFKBIZ the higher IL1B (more inhibition = more inflammation)
+
+
+# Call:
+#   lm(formula = IL1B_ns ~ NFKBIZ_ns, data = data_for_regression)
+# 
+# Residuals:
+#   Min       1Q   Median       3Q      Max 
+# -199.921  -79.066   -0.882   65.821  284.874 
+# 
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   3.3223    18.9352   0.175    0.861    
+# NFKBIZ_ns     4.4632     0.4044  11.038   <2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 101.6 on 77 degrees of freedom
+# Multiple R-squared:  0.6127,	Adjusted R-squared:  0.6077 
+# F-statistic: 121.8 on 1 and 77 DF,  p-value: < 2.2e-16
+
+
+#NFKBIZ
+#both stimulated
+model_IL1B_s_NFKBIZ_s <- lm(IL1B_s ~ NFKBIZ_s, data = data_for_regression)
+summary(model_IL1B_s_NFKBIZ_s)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_s, y = IL1B_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B (s) on NFKBIZ (s)",
+       x = "NFKBIZ",
+       y = "IL1B") +
+  theme_minimal()
+
+#the higher the NFKBIZ the higher IL1B (more inhibition = more inflammation even after the stimulation)
+
+
+# Call:
+#   lm(formula = IL1B_s ~ NFKBIZ_s, data = data_for_regression)
+# 
+# Residuals:
+#   Min      1Q  Median      3Q     Max 
+# -6887.7 -2505.2   101.5  2451.2  7872.4 
+# 
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept) 6948.653   1577.900   4.404 3.39e-05 ***
+#   NFKBIZ_s       4.620      1.809   2.554   0.0126 *  
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 3207 on 77 degrees of freedom
+# Multiple R-squared:  0.07811,	Adjusted R-squared:  0.06614 
+# F-statistic: 6.524 on 1 and 77 DF,  p-value: 0.01262
+
+
+#NFKBIZ
+#baseline suppression and IL1B response
+model_IL1B_s_NFKBIZ_ns <- lm(IL1B_s ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_IL1B_s_NFKBIZ_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = IL1B_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL1B (s) on NFKBIZ (ns)",
+       x = "NFKBIZ",
+       y = "IL1B") +
+  theme_minimal()
+
+#the higher the NFKBIZ the lower IL1B after the LPS response
+
+# Call:
+#   lm(formula = IL1B_s ~ NFKBIZ_ns, data = data_for_regression)
+# 
+# Residuals:
+#   Min      1Q  Median      3Q     Max 
+# -7579.6 -2611.9   315.2  2599.3  6791.8 
+# 
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept) 12414.54     582.34  21.318  < 2e-16 ***
+#   NFKBIZ_ns     -41.31      12.44  -3.322  0.00137 ** 
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 3124 on 77 degrees of freedom
+# Multiple R-squared:  0.1253,	Adjusted R-squared:  0.114 
+# F-statistic: 11.03 on 1 and 77 DF,  p-value: 0.00137
+
+
+#################################################################################################################
+
+# NFKBIA
+# both baseline for IL6
+model_IL6_ns_NFKBIA_ns <- lm(IL6_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL6_ns_NFKBIA_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = IL6_ns)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of IL6 (ns) on NFKBIA (ns)",
+       x = "NFKBIA",
+       y = "IL6") +
+  theme_minimal()
+
+
+# NFKBIA
+# both stimulated for IL6
+model_IL6_s_NFKBIA_s <- lm(IL6_s ~ NFKBIA_s, data = data_for_regression)
+summary(model_IL6_s_NFKBIA_s)
+
+ggplot(data_for_regression, aes(x = NFKBIA_s, y = IL6_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of IL6 (s) on NFKBIA (s)",
+       x = "NFKBIA",
+       y = "IL6") +
+  theme_minimal()
+
+
+
+#NFKBIA
+#baseline suppression and IL6 response
+model_IL6_s_NFKBIA_ns <- lm(IL6_s ~ NFKBIA_ns, data = data_for_regression)
+summary(model_IL6_s_NFKBIA_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = IL6_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL6 (s) on NFKBIA (ns)",
+       x = "NFKBIA",
+       y = "IL6") +
+  theme_minimal()
+
+
+
+
+
+
+# NFKBIZ
+# both baseline for IL6
+model_IL6_ns_NFKBIZ_ns <- lm(IL6_ns ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_IL6_ns_NFKBIZ_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = IL6_ns)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of IL6 (ns) on NFKBIZ (ns)",
+       x = "NFKBIZ",
+       y = "IL6") +
+  theme_minimal()
+
+
+# NFKBIZ
+# both stimulated for IL6
+model_IL6_s_NFKBIZ_s <- lm(IL6_s ~ NFKBIZ_s, data = data_for_regression)
+summary(model_IL6_s_NFKBIZ_s)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_s, y = IL6_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of IL6 (s) on NFKBIZ (s)",
+       x = "NFKBIZ",
+       y = "IL6") +
+  theme_minimal()
+
+
+
+#NFKBIA
+#baseline suppression and IL6 response
+model_IL6_s_NFKBIZ_ns <- lm(IL6_s ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_IL6_s_NFKBIZ_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = IL6_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of IL6 (s) on NFKBIZ (ns)",
+       x = "NFKBIZ",
+       y = "IL6") +
+  theme_minimal()
+
+
+
+
+
+
+
+#################################################################################################################
+
+# NFKBIA
+# both baseline for TNF
+model_TNF_ns_NFKBIA_ns <- lm(TNF_ns ~ NFKBIA_ns, data = data_for_regression)
+summary(model_TNF_ns_NFKBIA_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = TNF_ns)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of TNF (ns) on NFKBIA (ns)",
+       x = "NFKBIA",
+       y = "TNF") +
+  theme_minimal()
+
+
+# NFKBIA
+# both stimulated for TNF
+model_TNF_s_NFKBIA_s <- lm(TNF_s ~ NFKBIA_s, data = data_for_regression)
+summary(model_TNF_s_NFKBIA_s)
+
+ggplot(data_for_regression, aes(x = NFKBIA_s, y = TNF_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of TNF (s) on NFKBIA (s)",
+       x = "NFKBIA",
+       y = "TNF") +
+  theme_minimal()
+
+
+# NFKBIA
+# baseline suppression and TNF response
+model_TNF_s_NFKBIA_ns <- lm(TNF_s ~ NFKBIA_ns, data = data_for_regression)
+summary(model_TNF_s_NFKBIA_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIA_ns, y = TNF_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of TNF (s) on NFKBIA (ns)",
+       x = "NFKBIA",
+       y = "TNF") +
+  theme_minimal()
+
+
+# NFKBIZ
+# both baseline for TNF
+model_TNF_ns_NFKBIZ_ns <- lm(TNF_ns ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_TNF_ns_NFKBIZ_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = TNF_ns)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of TNF (ns) on NFKBIZ (ns)",
+       x = "NFKBIZ",
+       y = "TNF") +
+  theme_minimal()
+
+
+# NFKBIZ
+# both stimulated for TNF
+model_TNF_s_NFKBIZ_s <- lm(TNF_s ~ NFKBIZ_s, data = data_for_regression)
+summary(model_TNF_s_NFKBIZ_s)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_s, y = TNF_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Regression of TNF (s) on NFKBIZ (s)",
+       x = "NFKBIZ",
+       y = "TNF") +
+  theme_minimal()
+
+
+# NFKBIA
+# baseline suppression and TNF response
+model_TNF_s_NFKBIZ_ns <- lm(TNF_s ~ NFKBIZ_ns, data = data_for_regression)
+summary(model_TNF_s_NFKBIZ_ns)
+
+ggplot(data_for_regression, aes(x = NFKBIZ_ns, y = TNF_s)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "green4") +
+  labs(title = "Regression of TNF (s) on NFKBIZ (ns)",
+       x = "NFKBIZ",
+       y = "TNF") +
+  theme_minimal()
+
+
+
+
+
+#################################################################################################################
+
+data_for_regression_Controls <- read.table(pipe("pbpaste"), sep = "\t", header = T, row.names = 1)
+data_for_regression_Cases <- read.table(pipe("pbpaste"), sep = "\t", header = T, row.names = 1)
+
+############################################################################################################
+
+
+
+#######
+
+# Install required package
+if (!require(ivreg)) install.packages("ivreg")
+library(ivreg)
+
+# Instrumental variable regression
+# You'll need to identify a potential instrument 
+# (a variable that affects NFKBIA but not directly IL1B)
+# This is a conceptual example - you'd need a valid instrument from your biological context
+iv_model_chuk <- ivreg(IL1B_s ~ NFKBIA_ns | CHUK_ns, 
+                  data = data_for_regression)
+
+summary(iv_model_chuk, diagnostics = TRUE)
+
+
+# Call:
+#   ivreg(formula = IL1B_s ~ NFKBIA_ns | CHUK_ns, data = data_for_regression)
+
+# Residuals:
+#   Min        1Q    Median        3Q       Max 
+# -7757.250 -2734.667    -1.064  2717.179 15639.221 
+# 
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept) 15416.74    1541.61  10.000 1.44e-15 ***
+#   NFKBIA_ns      -7.44       2.43  -3.062  0.00303 ** 
+#   
+#   Diagnostic tests:
+#   df1 df2 statistic p-value    
+# Weak instruments   1  77    16.939 9.6e-05 ***
+#   Wu-Hausman         1  76     6.857  0.0107 *  
+#   Sargan             0  NA        NA      NA    
+# ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 3698 on 77 degrees of freedom
+# Multiple R-Squared: -0.2256,	Adjusted R-squared: -0.2416 
+# Wald test: 9.373 on 1 and 77 DF,  p-value: 0.003032
+
+
+# IV Regression Results:
+#   
+#   NFKBIA_ns has a significant negative effect on IL1B_s (p-value: 0.00303).
+# The effect size is -7.44, meaning that a one-unit increase in NFKBIA_ns is associated with a 7.44-unit decrease in IL1B_s.
+# The model's R-squared values are negative, indicating that the model does not explain the variation in IL1B_s well.
+# The diagnostic tests suggest that the instrument (CHUK_ns) is strong and valid.
+
+
+
+iv_model_chuk2 <- ivreg(IL1B_ns ~ NFKBIA_ns | CHUK_ns, 
+                       data = data_for_regression)
+
+summary(iv_model_chuk2)
+
+iv_model_chuk_il6 <- ivreg(IL6_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression)
+summary(iv_model_chuk_il6)
+
+iv_model_TNF <- ivreg(TNF_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression)
+summary(iv_model_TNF)
+# Call:
+#   ivreg(formula = IL1B_ns ~ NFKBIA_ns | CHUK_ns, data = data_for_regression)
+# 
+# Residuals:
+#   Min      1Q  Median      3Q     Max 
+# -389.85  -42.35   15.94   52.17  180.16 
+# 
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept) -139.30377   42.39714  -3.286  0.00153 ** 
+#   NFKBIA_ns      0.50629    0.06683   7.576 6.64e-11 ***
+#   
+#   Diagnostic tests:
+#   df1 df2 statistic  p-value    
+# Weak instruments   1  77     16.94  9.6e-05 ***
+#   Wu-Hausman         1  76     12.79 0.000612 ***
+#   Sargan             0  NA        NA       NA    
+# ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 101.7 on 77 degrees of freedom
+# Multiple R-Squared: 0.6118,	Adjusted R-squared: 0.6068 
+# Wald test: 57.39 on 1 and 77 DF,  p-value: 6.643e-11 
+# 
+
+
+# 
+# IV Regression Results:
+#   
+#   NFKBIA_ns has a significant positive effect on IL1B_ns (p-value: 6.64e-11).
+# The effect size is 0.50629, meaning that a one-unit increase in NFKBIA_ns is associated with a 0.50629-unit increase in IL1B_ns.
+# The model's R-squared values are high (0.6118 and 0.6068), indicating that the model explains a large proportion of the variation in IL1B_ns.
+# The diagnostic tests suggest that the instrument (CHUK_ns) is strong and valid.
+# The main difference between this result and the previous one is:
+# The direction of the effect: In the previous result, NFKBIA_ns had a negative effect on IL1B_s, while in this result, NFKBIA_ns has a positive effect on IL1B_ns.
+# The magnitude of the effect: The effect size in this result (0.50629) is much smaller than the effect size in the previous result (-7.44).
+
+
+iv_model_chuk2 <- ivreg(IL1B_ns ~ NFKBIA_ns | NFKB1_ns, 
+                        data = data_for_regression)
+summary(iv_model_chuk2)
+
+
+iv_model_chuk2 <- ivreg(IL1B_ns ~ NFKBIA_ns | NFKB2_ns, 
+                        data = data_for_regression)
+
+summary(iv_model_chuk2)
+
+
+
+iv_model_chuk3 <- ivreg(NFKBIA_ns ~ IL1B_ns | CHUK_ns, 
+                        data = data_for_regression)
+
+summary(iv_model_chuk3)
+
+iv_model_chuk4 <- ivreg(IL1B_ns ~ NFKBIA_ns | CHUK_ns + NFKB2_ns + NFKB1_ns, 
+                        data = data_for_regression)
+summary(iv_model_chuk4)
+
+iv_model_chuk5 <- ivreg(NFKBIA_ns ~ IL1B_ns | CHUK_ns + NFKB2_ns + NFKB1_ns, 
+                        data = data_for_regression)
+summary(iv_model_chuk5)
+
+
+ols_model <- lm(NFKBIA_s ~ IL1B_s, data = data_for_regression)
+summary(ols_model)
+
+
+#____________________________________________________________________________________________________________________________________
+#Granger Causality Test
+#____________________________________________________________________________________________________________________________________
+
+#install.packages("vars")
+library(vars)
+library(lmtest)
+
+# Create a time series data frame with your variables of interest
+data <- data.frame(NFKBIA = c(data_for_regression$NFKBIA_ns, data_for_regression$NFKBIA_s), 
+                   IL1B = c(data_for_regression$IL1B_ns, data_for_regression$IL1B_s))
+
+# Convert to time series object
+ts_data <- ts(data)
+
+# Perform Granger causality test
+grangertest(IL1B ~ NFKBIA, order = 1, data = ts_data)  # Testing if NFKBIA causes IL1B
+grangertest(NFKBIA ~ IL1B, order = 1, data = ts_data)  # Testing if IL1B causes NFKBIA
+
+
+
+#Vector auto regression (var)
+library(vars)
+data_var <- data.frame(NFKBIA = c(data_for_regression$NFKBIA_ns, data_for_regression$NFKBIA_s), 
+                       IL1B = c(data_for_regression$IL1B_ns, data_for_regression$IL1B_s))
+VAR_model <- VAR(data_var, p = 2, type = "both")  # p = lag order
+summary(VAR_model)
+
+
+
+
+#TNF and IL6
+
+# Install required packages if not already installed
+# install.packages("vars")
+# install.packages("lmtest")
+
+# Load necessary libraries
+library(vars)
+library(lmtest)
+
+# Create a time series data frame with IL6 and TNF gene expression levels
+data <- data.frame(
+  NFKBIA = c(data_for_regression$NFKBIA_ns, data_for_regression$NFKBIA_s), 
+  IL6 = c(data_for_regression$IL6_ns, data_for_regression$IL6_s),
+  TNF = c(data_for_regression$TNF_ns, data_for_regression$TNF_s)
+)
+
+# Convert to time series object
+ts_data <- ts(data)
+
+# Perform Granger causality test
+grangertest(IL6 ~ NFKBIA, order = 1, data = ts_data)  # Testing if NFKBIA causes IL6
+grangertest(NFKBIA ~ IL6, order = 1, data = ts_data)  # Testing if IL6 causes NFKBIA
+
+grangertest(TNF ~ NFKBIA, order = 1, data = ts_data)  # Testing if NFKBIA causes TNF
+grangertest(NFKBIA ~ TNF, order = 1, data = ts_data)  # Testing if TNF causes NFKBIA
+
+grangertest(IL6 ~ TNF, order = 1, data = ts_data)  # Testing if TNF causes IL6
+grangertest(TNF ~ IL6, order = 1, data = ts_data)  # Testing if IL6 causes TNF
+
+
+
+#____________________________________________________________________________________________________________________________________
+#Cases
+#____________________________________________________________________________________________________________________________________
+
+##linear regression
+data_for_regression_cases <- read.table(pipe("pbpaste"), sep = "\t", header = T, row.names = 1)
+data_for_regression_controls <- read.table(pipe("pbpaste"), sep = "\t", header = T, row.names = 1)
+
+
+iv_model_chuk_case <- ivreg(IL1B_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression_cases)
+summary(iv_model_chuk_case)
+
+
+iv_model_chuk_controls <- ivreg(IL1B_ns ~ NFKBIA_ns | CHUK_ns, 
+                            data = data_for_regression_controls)
+summary(iv_model_chuk_controls)
+
+
+#Vector auto regression (var)
+library(vars)
+data_var_cases <- data.frame(NFKBIA = c(data_for_regression_cases$NFKBIA_ns, data_for_regression_cases$NFKBIA_s), 
+                       IL1B = c(data_for_regression_cases$IL1B_ns, data_for_regression_cases$IL1B_s))
+VAR_model_cases <- VAR(data_var_cases, p = 2, type = "both")  # p = lag order
+summary(VAR_model_cases)
+#Vector auto regression (var)
+library(vars)
+data_var <- data.frame(NFKBIA = c(data_for_regression$NFKBIA_ns, data_for_regression$NFKBIA_s), 
+                       IL1B = c(data_for_regression$IL1B_ns, data_for_regression$IL1B_s))
+VAR_model <- VAR(data_var, p = 2, type = "both")  # p = lag order
+summary(VAR_model)
+
+
+
+#____________________________________________________________________________________________________________________________________
+#____________________________________________________________________________________________________________________________________
+#Interaction term genes
+#____________________________________________________________________________________________________________________________________
+#____________________________________________________________________________________________________________________________________
+
+data_for_regression_interaction <- read.table(pipe("pbpaste"), sep = "\t", header = T, row.names = 1)
+getwd()
+setwd()
+# IV Regression
+
+# Libraries
+library(AER)
+
+# IV Regression for TNF
+iv_model_TNF <- ivreg(TNF_ns ~ NFKBIA_ns | CHUK_ns, 
+                         data = data_for_regression_interaction)
+summary(iv_model_TNF, diagnostics = TRUE)
+
+# IV Regression for IL6
+iv_model_IL6 <- ivreg(IL6_ns ~ NFKBIA_ns | CHUK_ns, 
+                         data = data_for_regression_interaction)
+summary(iv_model_IL6, diagnostics = TRUE)
+
+# IV Regression for IL1B
+iv_model_IL1B <- ivreg(IL1B_ns ~ NFKBIA_ns | CHUK_ns, 
+                         data = data_for_regression_interaction)
+summary(iv_model_IL1B, diagnostics = TRUE)
+
+
+
+
+# IV Regression for MAP3K7
+iv_model_MAP3K7 <- ivreg(MAP3K7_ns ~ NFKBIA_ns | CHUK_ns, 
+                         data = data_for_regression_interaction)
+summary(iv_model_MAP3K7, diagnostics = TRUE)
+
+# IV Regression for CXCL3
+iv_model_CXCL3 <- ivreg(CXCL3_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression_interaction)
+summary(iv_model_CXCL3, diagnostics = TRUE)
+
+# IV Regression for CCL4
+iv_model_CCL4 <- ivreg(CCL4_ns ~ NFKBIA_ns | CHUK_ns, 
+                       data = data_for_regression_interaction)
+summary(iv_model_CCL4, diagnostics = TRUE)
+
+# IV Regression for CXCL1
+iv_model_CXCL1 <- ivreg(CXCL1_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression_interaction)
+summary(iv_model_CXCL1, diagnostics = TRUE)
+
+# IV Regression for F3
+iv_model_F3 <- ivreg(F3_ns ~ NFKBIA_ns | CHUK_ns, 
+                     data = data_for_regression_interaction)
+summary(iv_model_F3, diagnostics = TRUE)
+
+# IV Regression for DLGAP3
+iv_model_DLGAP3 <- ivreg(DLGAP3_ns ~ NFKBIA_ns | CHUK_ns, 
+                         data = data_for_regression_interaction)
+summary(iv_model_DLGAP3, diagnostics = TRUE)
+
+# IV Regression for CCL4L2
+iv_model_CCL4L2 <- ivreg(CCL4L2_ns ~ NFKBIA_ns | CHUK_ns, 
+                         data = data_for_regression_interaction)
+summary(iv_model_CCL4L2, diagnostics = TRUE)
+
+# IV Regression for CXCL2
+iv_model_CXCL2 <- ivreg(CXCL2_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression_interaction)
+summary(iv_model_CXCL2, diagnostics = TRUE)
+
+# IV Regression for DUSP2
+iv_model_DUSP2 <- ivreg(DUSP2_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression_interaction)
+summary(iv_model_DUSP2, diagnostics = TRUE)
+
+# IV Regression for RYR3
+iv_model_RYR3 <- ivreg(RYR3_ns ~ NFKBIA_ns | CHUK_ns, 
+                       data = data_for_regression_interaction)
+summary(iv_model_RYR3, diagnostics = TRUE)
+
+# IV Regression for ARL5B
+iv_model_ARL5B <- ivreg(ARL5B_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression_interaction)
+summary(iv_model_ARL5B, diagnostics = TRUE)
+
+# IV Regression for ACOD1
+iv_model_ACOD1 <- ivreg(ACOD1_ns ~ NFKBIA_ns | CHUK_ns, 
+                        data = data_for_regression_interaction)
+summary(iv_model_ACOD1, diagnostics = TRUE)
+
+
+
+
+install.packages("AER")
+library(AER)
+
+# List of genes
+genes <- c("MAP3K7_ns", "CXCL3_ns", "CCL4_ns", "CXCL1_ns", "F3_ns", 
+           "DLGAP3_ns", "CCL4L2_ns", "CXCL2_ns", "DUSP2_ns", "RYR3_ns", 
+           "ARL5B_ns", "ACOD1_ns")
+
+# Store results in a list
+iv_results <- list()
+
+for (gene in genes) {
+  formula <- as.formula(paste(gene, "~ NFKBIA_ns | CHUK_ns"))
+  iv_model <- ivreg(formula, data = data_for_regression_interaction)
+  iv_results[[gene]] <- summary(iv_model)
+  
+  # Print summary for each model
+  print(paste("IV Regression for:", gene))
+  print(summary(iv_model, diagnostics = TRUE))
+}
+
+
+
+#____________________________________________________________________________________________________________________________________
+
+#Granger Causality Test
+
+#genes <- c("MAP3K7_ns", "CXCL3_ns", "CCL4_ns", "CXCL1_ns", "F3_ns", 
+           # "DLGAP3_ns", "CCL4L2_ns", "CXCL2_ns", "DUSP2_ns", "RYR3_ns", 
+           # "ARL5B_ns", "ACOD1_ns")
+
+install.packages(c("vars", "lmtest"))  # Install necessary packages
+library(vars)
+library(lmtest)
+
+# TNF
+data_TNF <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                          TNF = c(data_for_regression_interaction$TNF_ns, data_for_regression_interaction$TNF_s))
+ts_TNF <- ts(data_TNF)
+grangertest(TNF ~ NFKBIA, order = 1, data = ts_TNF)
+grangertest(NFKBIA ~ TNF, order = 1, data = ts_TNF)
+
+# IL1B
+data_IL1B <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                        IL1B = c(data_for_regression_interaction$IL1B_ns, data_for_regression_interaction$IL1B_s))
+ts_IL1B <- ts(data_IL1B)
+grangertest(IL1B ~ NFKBIA, order = 1, data = ts_IL1B)
+grangertest(NFKBIA ~ IL1B, order = 1, data = ts_IL1B)
+
+
+# IL6
+data_IL6 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                        IL6 = c(data_for_regression_interaction$IL6_ns, data_for_regression_interaction$IL6_s))
+ts_IL6 <- ts(data_IL6)
+grangertest(IL6 ~ NFKBIA, order = 1, data = ts_IL6)
+grangertest(NFKBIA ~ IL6, order = 1, data = ts_IL6)
+
+
+# MAP3K7
+data_MAP3K7 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                          MAP3K7 = c(data_for_regression_interaction$MAP3K7_ns, data_for_regression_interaction$MAP3K7_s))
+ts_MAP3K7 <- ts(data_MAP3K7)
+grangertest(MAP3K7 ~ NFKBIA, order = 1, data = ts_MAP3K7)
+grangertest(NFKBIA ~ MAP3K7, order = 1, data = ts_MAP3K7)
+
+# CXCL3
+data_CXCL3 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                         CXCL3 = c(data_for_regression_interaction$CXCL3_ns, data_for_regression_interaction$CXCL3_s))
+ts_CXCL3 <- ts(data_CXCL3)
+grangertest(CXCL3 ~ NFKBIA, order = 1, data = ts_CXCL3)
+grangertest(NFKBIA ~ CXCL3, order = 1, data = ts_CXCL3)
+
+# CCL4
+data_CCL4 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                        CCL4 = c(data_for_regression_interaction$CCL4_ns, data_for_regression_interaction$CCL4_s))
+ts_CCL4 <- ts(data_CCL4)
+grangertest(CCL4 ~ NFKBIA, order = 1, data = ts_CCL4)
+grangertest(NFKBIA ~ CCL4, order = 1, data = ts_CCL4)
+
+# CXCL1
+data_CXCL1 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                         CXCL1 = c(data_for_regression_interaction$CXCL1_ns, data_for_regression_interaction$CXCL1_s))
+ts_CXCL1 <- ts(data_CXCL1)
+grangertest(CXCL1 ~ NFKBIA, order = 1, data = ts_CXCL1)
+grangertest(NFKBIA ~ CXCL1, order = 1, data = ts_CXCL1)
+
+# F3
+data_F3 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                      F3 = c(data_for_regression_interaction$F3_ns, data_for_regression_interaction$F3_s))
+ts_F3 <- ts(data_F3)
+grangertest(F3 ~ NFKBIA, order = 1, data = ts_F3)
+grangertest(NFKBIA ~ F3, order = 1, data = ts_F3)
+
+# DLGAP3
+data_DLGAP3 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                          DLGAP3 = c(data_for_regression_interaction$DLGAP3_ns, data_for_regression_interaction$DLGAP3_s))
+ts_DLGAP3 <- ts(data_DLGAP3)
+grangertest(DLGAP3 ~ NFKBIA, order = 1, data = ts_DLGAP3)
+grangertest(NFKBIA ~ DLGAP3, order = 1, data = ts_DLGAP3)
+
+# CCL4L2
+data_CCL4L2 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                          CCL4L2 = c(data_for_regression_interaction$CCL4L2_ns, data_for_regression_interaction$CCL4L2_s))
+ts_CCL4L2 <- ts(data_CCL4L2)
+grangertest(CCL4L2 ~ NFKBIA, order = 1, data = ts_CCL4L2)
+grangertest(NFKBIA ~ CCL4L2, order = 1, data = ts_CCL4L2)
+
+# CXCL2
+data_CXCL2 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                         CXCL2 = c(data_for_regression_interaction$CXCL2_ns, data_for_regression_interaction$CXCL2_s))
+ts_CXCL2 <- ts(data_CXCL2)
+grangertest(CXCL2 ~ NFKBIA, order = 1, data = ts_CXCL2)
+grangertest(NFKBIA ~ CXCL2, order = 1, data = ts_CXCL2)
+
+# DUSP2
+data_DUSP2 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                         DUSP2 = c(data_for_regression_interaction$DUSP2_ns, data_for_regression_interaction$DUSP2_s))
+ts_DUSP2 <- ts(data_DUSP2)
+grangertest(DUSP2 ~ NFKBIA, order = 1, data = ts_DUSP2)
+grangertest(NFKBIA ~ DUSP2, order = 1, data = ts_DUSP2)
+
+# RYR3
+data_RYR3 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                        RYR3 = c(data_for_regression_interaction$RYR3_ns, data_for_regression_interaction$RYR3_s))
+ts_RYR3 <- ts(data_RYR3)
+grangertest(RYR3 ~ NFKBIA, order = 1, data = ts_RYR3)
+grangertest(NFKBIA ~ RYR3, order = 1, data = ts_RYR3)
+
+# ARL5B
+data_ARL5B <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                         ARL5B = c(data_for_regression_interaction$ARL5B_ns, data_for_regression_interaction$ARL5B_s))
+ts_ARL5B <- ts(data_ARL5B)
+grangertest(ARL5B ~ NFKBIA, order = 1, data = ts_ARL5B)
+grangertest(NFKBIA ~ ARL5B, order = 1, data = ts_ARL5B)
+
+# ACOD1
+data_ACOD1 <- data.frame(NFKBIA = c(data_for_regression_interaction$NFKBIA_ns, data_for_regression_interaction$NFKBIA_s), 
+                         ACOD1 = c(data_for_regression_interaction$ACOD1_ns, data_for_regression_interaction$ACOD1_s))
+ts_ACOD1 <- ts(data_ACOD1)
+grangertest(ACOD1 ~ NFKBIA, order = 1, data = ts_ACOD1)
+grangertest(NFKBIA ~ ACOD1, order = 1, data = ts_ACOD1)
