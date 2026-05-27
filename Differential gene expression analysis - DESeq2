@@ -1,0 +1,672 @@
+######################################################################################
+####################################DESeq2#DEGs#######################################
+######################################################################################
+
+
+
+
+
+##########cases_NAR_vs_NNAR
+
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "counts_case.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "metadata_case.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age + NAS )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+results <- results( dds)
+coldata <- colData( dds )
+#L   <- levels( coldata[["NAS"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["NAS"]] == "NAR" ] )
+rmB <- rowMeans( nC[ , coldata[["NAS"]] == "NNAR" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds,contrast=c("NAS","NAR","NNAR"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "NAR", "NNAR" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "neutrophil_case_NAR_vs_NNAR.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
+##########controls_NAR_vs_NNAR
+
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "counts_control.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "metadata_control.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age + NAS )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["NAS"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["NAS"]] == "NAR" ] )
+rmB <- rowMeans( nC[ , coldata[["NAS"]] == "NNAR" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds,contrast=c("NAS","NAR","NNAR"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "NAR", "NNAR" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "neutrophil_control_NAR_vs_NNAR.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
+
+##########
+
+
+##########NNAR##case vs control
+
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet  << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "counts_NNAR.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "metadata_NNAR.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age + cond )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["cond"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["cond"]] == "Case" ] )
+rmB <- rowMeans( nC[ , coldata[["cond"]] == "Control" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("cond","Case","Control"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "Case", "Control" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "neutrophil_NNAR_case_vs_control.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
+##########NAR##case vs control
+
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "counts_NAR.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "metadata_NAR.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age + cond )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["cond"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["cond"]] == "Case" ] )
+rmB <- rowMeans( nC[ , coldata[["cond"]] == "Control" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("cond","Case","Control"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "Case", "Control" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "neutrophil_NAR_case_vs_control.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+###########################################################################################################################################
+###################################################################  FOLLOW UP ############################################################
+###########################################################################################################################################
+##################               *AB vs GF*                  ###############
+##################                A= 6  B=7  (Better)        ###############
+##################                G= 1  F=2  (no change)     ###############
+
+
+
+##################               *Non stimulated*              ####
+
+
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "countsABvsGF_NNAR.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "metadataABvsGF_NNAR.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age + PGIC )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["PGIC"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["PGIC"]] == "I" ] )
+rmB <- rowMeans( nC[ , coldata[["PGIC"]] == "NI" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("PGIC","I","NI"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "I", "NI" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "neutrophil_NNAR_case_I_vs_NI.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
+
+##################               *stimulated*              ####
+
+
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "countsABvsGF_NAR.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "metadataABvsGF_NAR.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age + PGIC )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["PGIC"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["PGIC"]] == "I" ] )
+rmB <- rowMeans( nC[ , coldata[["PGIC"]] == "NI" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("PGIC","I","NI"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "I", "NI" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "neutrophil_NAR_case_I_vs_NI.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
+
+
+#####follow up 73 PGIC
+
+
+
+##################               *non stimulated*              ####
+
+
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "NNAR_cases_PGIC73_counts_complete.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "NNAR_cases_PGIC_meta.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age + PGIC )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["PGIC"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["PGIC"]] == "R" ] )
+rmB <- rowMeans( nC[ , coldata[["PGIC"]] == "P" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("PGIC","R","P"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "R", "P" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "DEG_neutrophil_NNAR_PGIC73_R_vs_P.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
+##################               *stimulated*              ####
+
+
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "NAR_cases_PGIC73_counts_complete.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "NAR_cases_PGIC_meta.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age + PGIC )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["PGIC"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["PGIC"]] == "R" ] )
+rmB <- rowMeans( nC[ , coldata[["PGIC"]] == "P" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("PGIC","R","P"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "R", "P" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "DEG_neutrophil_NAR_PGIC73_R_vs_P.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
+
+EOF
+
+
+##################               follow up - cases - contrasting categories             ####
+
+#Improvers
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "R_counts_avecnom.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "meta_follow_up_29_R.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age  + NAS )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["NAS"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["NAS"]] == "NAR" ] )
+rmB <- rowMeans( nC[ , coldata[["NAS"]] == "NNAR" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("NAS","NAR","NNAR"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "NAR", "NNAR" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "DEG_neutrophil_follow_up_29_R_S_vs_NS.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+##########################################################################
+
+#Persisters
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "P_counts_avecnom.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "meta_follow_up_44_P.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age  + NAS )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["NAS"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["NAS"]] == "NAR" ] )
+rmB <- rowMeans( nC[ , coldata[["NAS"]] == "NNAR" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("NAS","NAR","NNAR"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "NAR", "NNAR" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "DEG_neutrophil_follow_up_44_P_S_vs_NS.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
+
+##################               case vs controls - stratified             ####
+##################                       Non-stimulated                    ####
+#Improvers
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "count_NS_R_vs_control_sorted.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "meta_NS_R_vs_control_sorted.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age  + cond )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["cond"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["cond"]] == "Case" ] )
+rmB <- rowMeans( nC[ , coldata[["cond"]] == "Control" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("cond","Case","Control"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "Case_R", "Control" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "DEG_neutrophil_NS_R_vs_control.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+#Persisters
+
+
+/home/sjahan6/R-4.1.3/bin/R --no-save --quiet << EOF
+library(DESeq2)
+library("BiocParallel")
+register(MulticoreParam(50))
+
+C <- read.table( 
+  "count_NS_P_vs_control_sorted.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+
+coldata <- read.table( 
+  "meta_NS_P_vs_control_sorted.txt", 
+  sep="\t", header=TRUE, row.names=1, 
+  as.is=TRUE, stringsAsFactors=FALSE )
+#
+dds <- DESeqDataSetFromMatrix(
+  countData=C,
+  colData=coldata,
+  design =~bmi + sex + age  + cond )
+
+dds <- DESeq(
+  dds,
+  parallel=TRUE,
+  BPPARAM=MulticoreParam(50) )
+res <- results( dds )
+coldata <- colData( dds )
+#L   <- levels( coldata[["cond"]] )
+nC  <- as.data.frame( counts( dds, normalized=TRUE ) )
+rmT <- rowMeans( nC[ , coldata[["cond"]] == "Case" ] )
+rmB <- rowMeans( nC[ , coldata[["cond"]] == "Control" ] )
+rrr <- cbind( cbind( 
+  as.data.frame( results( dds, contrast=c("cond","Case","Control"), independentFiltering=FALSE ) ), 
+  rmT ), rmB )
+colnames( rrr ) <- c( colnames( rrr )[ 1:6 ], "Case_P", "Control" )
+#=====----- results for all genes
+
+O   <- order( rrr[["pvalue"]] )
+rrr[ head( O ), ]
+write.table( 
+ rrr[ O, ],
+  "DEG_neutrophil_NS_P_vs_control.DEG", 
+
+ sep="\t",
+ row.names=TRUE,
+ col.names=TRUE,
+ quote=FALSE )
+EOF
+
+
