@@ -1,0 +1,71 @@
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+df <- read_excel("Medication single sheet.xlsx")
+
+# Combine medication columns
+med_cols <- c(
+  'ghs_fm1_name', 'ghs_fm2_name', 'ghs_fm3_name', 'ghs_fm4_name', 'ghs_fm5_name', 'ghs_fm6_comment',
+  'ghs_fm1_oc_name', 'ghs_fm2_oc_name', 'ghs_fm3_oc_name',
+  'ghs_nonfm1_name', 'ghs_nonfm2_ind', 'ghs_nonfm3_name', 'ghs_nonfm4_name', 'ghs_nonfm5_name', 'ghs_nonfm6_comment',
+  'ghs_nonfm1_oc_name', 'ghs_nonfm2_oc_name', 'ghs_nonfm3_oc_name', 'ghs_nonfm4_oc_name'
+)
+
+df$combined_meds <- df %>%
+  select(all_of(med_cols)) %>%
+  unite("combined", everything(), sep = " | ", na.rm = TRUE) %>%
+  mutate(combined = tolower(combined)) %>%
+  pull(combined)
+
+# medication categories and keywords
+categories <- list(
+  anti_inflammatory = c("advil", "ibuprofen", "naproxen", "celebrex", "diclofenac", "voltaren", "aleve", "mobico", "empracet"),
+  antidepressants = c("cymbalta", "zoloft", "wellbutrin", "venlafaxine", "prozac", "cipralex", "citalopram", "quetiapine", "trazodone"),
+  opioids = c("tramadol", "zytram", "ralivia"),
+  other_painkillers = c("tylenol", "acetaminophen"),
+  supplements = c("vitamin", "calcium", "magnesium", "omega", "collagen", "iron", "supplement", "probiotic"),
+  other_medications = c("zopiclone", "melatonin", "sublinox", "trazodone", "synthroid", "levothyroxine")
+)
+
+# Add binary flags 
+for (group in names(categories)) {
+  pattern <- paste0("\\b(", paste(categories[[group]], collapse = "|"), ")\\b")
+  df[[group]] <- as.integer(str_detect(df$combined_meds, pattern))
+}
+
+# Filter 
+df <- df %>% filter(FWU %in% c("I", "P"))
+
+# summary table
+summary_table <- lapply(names(categories), function(group) {
+  counts <- table(df[[group]], df$FWU)
+  if (all(dim(counts) == c(2, 2))) {
+    fisher <- fisher.test(counts)
+    count_I <- sum(df[[group]] == 1 & df$FWU == "I")
+    count_P <- sum(df[[group]] == 1 & df$FWU == "P")
+    data.frame(
+      Category = group,
+      Drugs = paste(categories[[group]], collapse = ", "),
+      I_Count = count_I,
+      P_Count = count_P,
+      Total_Users = count_I + count_P,
+      P_value = round(fisher$p.value, 4)
+    )
+  } else {
+    data.frame(
+      Category = group,
+      Drugs = paste(categories[[group]], collapse = ", "),
+      I_Count = NA,
+      P_Count = NA,
+      Total_Users = NA,
+      P_value = NA
+    )
+  }
+}) %>% bind_rows()
+
+print(summary_table)
+write.csv(summary_table, "medications_combined_results.csv", row.names=TRUE)
+
+# write.csv(summary_table, "medication_fisher_results.csv", row.names = FALSE)
