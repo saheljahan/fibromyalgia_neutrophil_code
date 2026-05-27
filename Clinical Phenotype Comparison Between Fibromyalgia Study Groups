@@ -1,4 +1,763 @@
 
+# ===== Table 1 cohort analysis (fixed tests: Wilcoxon & Chi-square) =====
+
+# ================== Clean Table 1 (Wilcoxon + Chi-square) ==================
+# Load required libraries
+library(readxl)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Read the data
+data <- read_excel("phenotype data _ data clean.xlsx")
+
+# Clean the grouping variable first
+data$cond <- as.character(data$cond)
+data$cond <- trimws(data$cond)  # Remove any whitespace
+
+# Check the grouping variable
+cat("Unique values in cond variable:", unique(data$cond), "\n")
+cat("Number of cases:", sum(data$cond == "Case", na.rm = TRUE), "\n")
+cat("Number of controls:", sum(data$cond == "Control", na.rm = TRUE), "\n")
+
+# Clean and convert all continuous variables to numeric
+# Handle "NA" strings and other non-numeric values
+continuous_vars_to_clean <- c("age", "bmi", "si_age", "FMS_score", "FIQ_score", 
+                              "SCL_somat_score", "BAI_score", "BDI_score", 
+                              "PSQI_score", "PSS_score", "PPT")
+
+for (var in continuous_vars_to_clean) {
+  if (var %in% names(data)) {
+    # Convert to character first to handle any factor issues
+    data[[var]] <- as.character(data[[var]])
+    # Replace "NA" strings with actual NA, then convert to numeric
+    data[[var]] <- as.numeric(ifelse(data[[var]] == "NA" | data[[var]] == "", NA, data[[var]]))
+  }
+}
+
+# Define continuous and categorical variables
+continuous_vars <- c("age", "bmi", "si_age", "FMS_score", "FIQ_score", 
+                     "SCL_somat_score", "BAI_score", "BDI_score", 
+                     "PSQI_score", "PSS_score", "PPT")
+
+categorical_vars <- c("FSQ_depression", "sex")
+
+# Function to calculate descriptive statistics for continuous variables
+calc_continuous_stats <- function(x) {
+  x <- x[!is.na(x)]  # Remove NA values
+  if(length(x) == 0) {
+    return(c(n = 0, mean = NA, median = NA, sd = NA, min = NA, max = NA))
+  }
+  c(n = length(x),
+    mean = mean(x),
+    median = median(x),
+    sd = sd(x),
+    min = min(x),
+    max = max(x))
+}
+
+# Function to calculate descriptive statistics for categorical variables
+calc_categorical_stats <- function(x, var_name) {
+  tab <- table(x, useNA = "ifany")
+  n_total <- length(x)
+  
+  # Create a formatted string with counts and percentages
+  result <- paste0(names(tab), ": ", tab, " (", 
+                   round(100 * tab / n_total, 1), "%)", 
+                   collapse = "; ")
+  
+  return(data.frame(
+    variable = var_name,
+    n_total = n_total,
+    distribution = result,
+    stringsAsFactors = FALSE
+  ))
+}
+
+# Initialize results data frame for continuous variables
+continuous_results <- data.frame()
+
+# Process continuous variables
+for (var in continuous_vars) {
+  if (var %in% names(data)) {
+    
+    # Get the numeric data
+    var_data <- data[[var]]
+    
+    # Overall statistics
+    overall_stats <- calc_continuous_stats(var_data)
+    
+    # Cases statistics - use logical indexing properly
+    cases_indices <- !is.na(data$cond) & data$cond == "Case"
+    cases_data <- var_data[cases_indices]
+    cases_stats <- calc_continuous_stats(cases_data)
+    
+    # Controls statistics - use logical indexing properly  
+    controls_indices <- !is.na(data$cond) & data$cond == "Control"
+    controls_data <- var_data[controls_indices]
+    controls_stats <- calc_continuous_stats(controls_data)
+    
+    # Wilcoxon rank-sum test
+    cases_values <- cases_data[!is.na(cases_data)]
+    controls_values <- controls_data[!is.na(controls_data)]
+    
+    if (length(cases_values) > 0 && length(controls_values) > 0) {
+      tryCatch({
+        wilcox_test <- wilcox.test(cases_values, controls_values)
+        p_value <- wilcox_test$p.value
+      }, error = function(e) {
+        cat("Error in Wilcoxon test for", var, ":", e$message, "\n")
+        p_value <<- NA
+      })
+    } else {
+      p_value <- NA
+    }
+    
+    # Combine results
+    row_result <- data.frame(
+      Variable = var,
+      
+      # Combined statistics
+      Combined_N = overall_stats["n"],
+      Combined_Mean = round(overall_stats["mean"], 2),
+      Combined_Median = round(overall_stats["median"], 2),
+      Combined_SD = round(overall_stats["sd"], 2),
+      Combined_Min = round(overall_stats["min"], 2),
+      Combined_Max = round(overall_stats["max"], 2),
+      
+      # Cases statistics
+      Cases_N = cases_stats["n"],
+      Cases_Mean = round(cases_stats["mean"], 2),
+      Cases_Median = round(cases_stats["median"], 2),
+      Cases_SD = round(cases_stats["sd"], 2),
+      Cases_Min = round(cases_stats["min"], 2),
+      Cases_Max = round(cases_stats["max"], 2),
+      
+      # Controls statistics
+      Controls_N = controls_stats["n"],
+      Controls_Mean = round(controls_stats["mean"], 2),
+      Controls_Median = round(controls_stats["median"], 2),
+      Controls_SD = round(controls_stats["sd"], 2),
+      Controls_Min = round(controls_stats["min"], 2),
+      Controls_Max = round(controls_stats["max"], 2),
+      
+      # Test results
+      P_value = ifelse(is.na(p_value), "NA", 
+                       ifelse(p_value < 0.001, "<0.001", round(p_value, 3))),
+      Test = "Wilcoxon rank-sum"
+    )
+    
+    continuous_results <- rbind(continuous_results, row_result)
+  }
+}
+
+# Initialize results data frame for categorical variables
+categorical_results <- data.frame()
+
+# Process categorical variables
+for (var in categorical_vars) {
+  if (var %in% names(data)) {
+    
+    # Clean the categorical data
+    var_data <- as.character(data[[var]])
+    var_data[var_data == "NA" | var_data == "" | is.na(var_data)] <- NA
+    
+    # Create contingency table with proper indexing
+    cond_data <- data$cond
+    
+    # Remove rows where either variable is NA for the contingency table
+    valid_indices <- !is.na(var_data) & !is.na(cond_data)
+    cont_table <- table(var_data[valid_indices], cond_data[valid_indices])
+    
+    # Chi-square test
+    tryCatch({
+      if (all(dim(cont_table) >= 2) && all(cont_table >= 5) && sum(cont_table) > 0) {
+        chi_test <- chisq.test(cont_table)
+        p_value <- chi_test$p.value
+        test_type <- "Chi-square"
+      } else {
+        # Use Fisher's exact test for small samples
+        fisher_test <- fisher.test(cont_table)
+        p_value <- fisher_test$p.value
+        test_type <- "Fisher's exact"
+      }
+    }, error = function(e) {
+      cat("Error in test for", var, ":", e$message, "\n")
+      p_value <<- NA
+      test_type <<- "Test failed"
+    })
+    
+    # Calculate statistics for each group
+    overall_stats <- calc_categorical_stats(var_data, var)
+    cases_indices <- !is.na(data$cond) & data$cond == "Case"
+    controls_indices <- !is.na(data$cond) & data$cond == "Control"
+    cases_stats <- calc_categorical_stats(var_data[cases_indices], var)
+    controls_stats <- calc_categorical_stats(var_data[controls_indices], var)
+    
+    # Combine results
+    row_result <- data.frame(
+      Variable = var,
+      Combined_Distribution = overall_stats$distribution,
+      Combined_N = overall_stats$n_total,
+      Cases_Distribution = cases_stats$distribution,
+      Cases_N = cases_stats$n_total,
+      Controls_Distribution = controls_stats$distribution,
+      Controls_N = controls_stats$n_total,
+      P_value = ifelse(p_value < 0.001, "<0.001", round(p_value, 3)),
+      Test = test_type
+    )
+    
+    categorical_results <- rbind(categorical_results, row_result)
+  }
+}
+
+# Display results
+cat("=== CONTINUOUS VARIABLES COMPARISON ===\n\n")
+print(kable(continuous_results, 
+            caption = "Comparison of Continuous Variables between Cases and Controls",
+            format = "markdown"))
+
+cat("\n\n=== CATEGORICAL VARIABLES COMPARISON ===\n\n")
+print(kable(categorical_results,
+            caption = "Comparison of Categorical Variables between Cases and Controls", 
+            format = "markdown"))
+
+# Create a more compact summary table
+cat("\n\n=== SUMMARY TABLE ===\n\n")
+
+# Combine key statistics for a summary
+summary_table <- data.frame(
+  Variable = c(continuous_results$Variable, categorical_results$Variable),
+  Type = c(rep("Continuous", nrow(continuous_results)), 
+           rep("Categorical", nrow(categorical_results))),
+  Cases_N = c(continuous_results$Cases_N, categorical_results$Cases_N),
+  Controls_N = c(continuous_results$Controls_N, categorical_results$Controls_N),
+  P_value = c(continuous_results$P_value, categorical_results$P_value),
+  Test = c(continuous_results$Test, categorical_results$Test),
+  Significant = ifelse(c(continuous_results$P_value, categorical_results$P_value) == "<0.001", "Yes*",
+                       ifelse(c(continuous_results$P_value, categorical_results$P_value) == "NA", "NA",
+                              ifelse(suppressWarnings(as.numeric(c(continuous_results$P_value, categorical_results$P_value))) < 0.05, "Yes*", "No")))
+)
+
+print(kable(summary_table,
+            caption = "Summary of Statistical Tests (* p < 0.05)",
+            format = "markdown"))
+
+# Additional useful information
+cat("\n=== SAMPLE SIZE INFORMATION ===\n")
+cat("Total sample size:", nrow(data), "\n")
+cat("Cases:", sum(data$cond == "Case"), "\n")
+cat("Controls:", sum(data$cond == "Control"), "\n")
+cat("\nNote: * indicates statistically significant difference (p < 0.05)\n")
+cat("Wilcoxon rank-sum test used for continuous variables\n")
+cat("Chi-square test (or Fisher's exact test for small samples) used for categorical variables\n")
+
+
+
+
+# Save results to CSV files
+cat("\n=== SAVING RESULTS TO CSV FILES ===\n")
+
+# Save continuous variables results
+write.csv(continuous_results, "continuous_variables_comparison.csv", row.names = FALSE)
+cat("Continuous variables results saved to: continuous_variables_comparison.csv\n")
+
+# Save categorical variables results
+write.csv(categorical_results, "categorical_variables_comparison.csv", row.names = FALSE)
+cat("Categorical variables results saved to: categorical_variables_comparison.csv\n")
+
+# Save summary table
+write.csv(summary_table, "summary_statistical_tests.csv", row.names = FALSE)
+cat("Summary table saved to: summary_statistical_tests.csv\n")
+
+# Create and save a comprehensive combined results table
+combined_results <- data.frame(
+  Variable = c(continuous_results$Variable, categorical_results$Variable),
+  Type = c(rep("Continuous", nrow(continuous_results)), 
+           rep("Categorical", nrow(categorical_results))),
+  
+  # Sample sizes
+  Total_N = c(continuous_results$Combined_N, categorical_results$Combined_N),
+  Cases_N = c(continuous_results$Cases_N, categorical_results$Cases_N),
+  Controls_N = c(continuous_results$Controls_N, categorical_results$Controls_N),
+  
+  # For continuous variables - Cases statistics
+  Cases_Mean = c(continuous_results$Cases_Mean, rep(NA, nrow(categorical_results))),
+  Cases_Median = c(continuous_results$Cases_Median, rep(NA, nrow(categorical_results))),
+  Cases_SD = c(continuous_results$Cases_SD, rep(NA, nrow(categorical_results))),
+  Cases_Min = c(continuous_results$Cases_Min, rep(NA, nrow(categorical_results))),
+  Cases_Max = c(continuous_results$Cases_Max, rep(NA, nrow(categorical_results))),
+  
+  # For continuous variables - Controls statistics
+  Controls_Mean = c(continuous_results$Controls_Mean, rep(NA, nrow(categorical_results))),
+  Controls_Median = c(continuous_results$Controls_Median, rep(NA, nrow(categorical_results))),
+  Controls_SD = c(continuous_results$Controls_SD, rep(NA, nrow(categorical_results))),
+  Controls_Min = c(continuous_results$Controls_Min, rep(NA, nrow(categorical_results))),
+  Controls_Max = c(continuous_results$Controls_Max, rep(NA, nrow(categorical_results))),
+  
+  # For categorical variables - distributions
+  Cases_Distribution = c(rep(NA, nrow(continuous_results)), categorical_results$Cases_Distribution),
+  Controls_Distribution = c(rep(NA, nrow(continuous_results)), categorical_results$Controls_Distribution),
+  
+  # Statistical test results
+  P_value = c(continuous_results$P_value, categorical_results$P_value),
+  Statistical_Test = c(continuous_results$Test, categorical_results$Test),
+  Significant_p005 = summary_table$Significant,
+  
+  stringsAsFactors = FALSE
+)
+
+write.csv(combined_results, "complete_cohort_comparison.csv", row.names = FALSE)
+cat("Complete combined results saved to: complete_cohort_comparison.csv\n")
+
+cat("\nAll results have been saved to CSV files in your working directory.\n")
+
+
+
+
+
+
+###########################################################################################################################
+#PGIC
+###########################################################################################################################
+
+
+PGIC_data <- read.table(pipe("pbpaste"), header = TRUE, sep = "\t")
+head(PGIC_data)
+
+#
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+
+FMS_score_cor <- cor.test(PGIC_data$PGIC, PGIC_data$FMS_score,  method = "pearson", use = "complete.obs")
+FMS_score_cor
+# Extract relevant information
+correlation_coefficient <- FMS_score_cor$estimate
+p_value <- FMS_score_cor$p.value
+test_statistic <- FMS_score_cor$statistic
+degrees_of_freedom <- FMS_score_cor$parameter
+
+# Create a data frame for the results
+result_table_FMS_score_cor <- data.frame(
+  "Correlation Coefficient" = correlation_coefficient,
+  "P-value" = p_value,
+  "Test Statistic" = test_statistic,
+  "Degrees of Freedom" = degrees_of_freedom
+)
+# Print the table
+print(result_table)
+
+
+
+
+FMS_score_cor <- cor.test(PGIC_data$PGIC, PGIC_data$FIQ_score,  method = "pearson", use = "complete.obs")
+FMS_score_cor
+
+
+
+# Load required library
+library(corrr)  # Optional: for nicer correlation output formatting
+#install.packages("corrr")
+# Define the variables for correlation analysis
+variables <- c("age", "bmi", "FMS_score", "FIQ_score", "SCL_somat_score", 
+               "BAI_score", "BDI_score", "PSQI_score", "PSS_score", "PPT")
+
+# Method 1: Individual correlations with PGIC
+cat("=== Individual Correlations with PGIC ===\n")
+for(var in variables) {
+  if(var %in% names(PGIC_data)) {
+    correlation <- cor(PGIC_data$PGIC, PGIC_data[[var]], use = "complete.obs")
+    n_complete <- sum(complete.cases(PGIC_data$PGIC, PGIC_data[[var]]))
+    cat(sprintf("%-15s: r = %6.3f (n = %d)\n", var, correlation, n_complete))
+  } else {
+    cat(sprintf("%-15s: Variable not found in dataset\n", var))
+  }
+}
+
+# Method 2: Correlation matrix (subset of data)
+cat("\n=== Correlation Matrix ===\n")
+# Select PGIC and the variables that exist in the dataset
+available_vars <- c("PGIC", variables[variables %in% names(PGIC_data)])
+correlation_data <- PGIC_data[, available_vars, drop = FALSE]
+
+# Calculate correlation matrix with pairwise complete observations
+cor_matrix <- cor(correlation_data, use = "pairwise.complete.obs")
+print(round(cor_matrix, 3))
+
+# Method 3: Extract just PGIC correlations from the matrix
+cat("\n=== PGIC Correlations Summary ===\n")
+pgic_correlations <- cor_matrix["PGIC", -1]  # Exclude PGIC vs PGIC
+pgic_correlations <- sort(abs(pgic_correlations), decreasing = TRUE)
+print(round(pgic_correlations, 3))
+
+# Method 4: Statistical significance testing
+cat("\n=== Correlation Tests with p-values ===\n")
+for(var in variables) {
+  if(var %in% names(PGIC_data)) {
+    test_result <- cor.test(PGIC_data$PGIC, PGIC_data[[var]])
+    cat(sprintf("%-15s: r = %6.3f, p = %6.4f, 95%% CI [%6.3f, %6.3f]\n", 
+                var, test_result$estimate, test_result$p.value,
+                test_result$conf.int[1], test_result$conf.int[2]))
+  }
+}
+
+# Method 5: Check for missing data patterns
+cat("\n=== Missing Data Summary ===\n")
+missing_summary <- sapply(PGIC_data[, c("PGIC", variables)], function(x) sum(is.na(x)))
+print(missing_summary)
+
+
+
+
+
+
+
+
+
+
+
+
+# Load required libraries
+library(ggplot2)
+library(corrplot)
+library(dplyr)
+library(gridExtra)
+
+
+# Define the variables for correlation analysis
+variables <- c("age", "bmi", "FMS_score", "FIQ_score", "SCL_somat_score", 
+               "BAI_score", "BDI_score", "PSQI_score", "PSS_score", "PPT")
+
+# Create output directory if it doesn't exist
+if (!dir.exists("PGIC_correlation_results")) {
+  dir.create("PGIC_correlation_results")
+}
+
+# Redirect output to file
+sink("PGIC_correlation_results/correlation_results.txt")
+
+cat("PGIC Correlation Analysis Results\n")
+cat("=================================\n")
+cat("Date:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n")
+
+# Method 1: Individual correlations with PGIC
+cat("=== Individual Correlations with PGIC ===\n")
+correlation_results <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  CI_lower = numeric(),
+  CI_upper = numeric(),
+  N_complete = integer(),
+  stringsAsFactors = FALSE
+)
+
+for(var in variables) {
+  if(var %in% names(PGIC_data)) {
+    test_result <- cor.test(PGIC_data$PGIC, PGIC_data[[var]])
+    n_complete <- sum(complete.cases(PGIC_data$PGIC, PGIC_data[[var]]))
+    
+    correlation_results <- rbind(correlation_results, data.frame(
+      Variable = var,
+      Correlation = as.numeric(test_result$estimate),
+      P_value = test_result$p.value,
+      CI_lower = test_result$conf.int[1],
+      CI_upper = test_result$conf.int[2],
+      N_complete = n_complete
+    ))
+    
+    cat(sprintf("%-15s: r = %6.3f, p = %6.4f, 95%% CI [%6.3f, %6.3f], n = %d\n", 
+                var, test_result$estimate, test_result$p.value,
+                test_result$conf.int[1], test_result$conf.int[2], n_complete))
+  } else {
+    cat(sprintf("%-15s: Variable not found in dataset\n", var))
+  }
+}
+
+# Method 2: Correlation matrix
+cat("\n=== Correlation Matrix ===\n")
+available_vars <- c("PGIC", variables[variables %in% names(PGIC_data)])
+correlation_data <- PGIC_data[, available_vars, drop = FALSE]
+cor_matrix <- cor(correlation_data, use = "pairwise.complete.obs")
+print(round(cor_matrix, 3))
+
+# Extract PGIC correlations
+cat("\n=== PGIC Correlations Summary (sorted by absolute magnitude) ===\n")
+pgic_correlations <- cor_matrix["PGIC", -1]
+pgic_correlations_sorted <- sort(abs(pgic_correlations), decreasing = TRUE)
+print(round(pgic_correlations_sorted, 3))
+
+# Missing data summary
+cat("\n=== Missing Data Summary ===\n")
+missing_summary <- sapply(correlation_data, function(x) sum(is.na(x)))
+print(missing_summary)
+
+# Stop redirecting output
+sink()
+
+# Save correlation results as CSV
+write.csv(correlation_results, "PGIC_correlation_results/correlation_table.csv", row.names = FALSE)
+
+# Save correlation matrix as CSV
+write.csv(cor_matrix, "PGIC_correlation_results/correlation_matrix.csv")
+
+# Create visualizations
+cat("Creating visualizations...\n")
+
+# 1. Correlation bar plot
+correlation_results$Significant <- ifelse(correlation_results$P_value < 0.05, "Significant (p<0.05)", "Not Significant")
+
+p1 <- ggplot(correlation_results, aes(x = reorder(Variable, abs(Correlation)), y = Correlation)) +
+  geom_col(aes(fill = Significant), width = 0.7) +
+  geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper), width = 0.2, alpha = 0.7) +
+  coord_flip() +
+  scale_fill_manual(values = c("Significant (p<0.05)" = "lightgreen", "Not Significant" = "#A23B72")) +
+  labs(title = "Correlations with PGIC",
+       subtitle = "Error bars show 95% confidence intervals",
+       x = "Variables",
+       y = "Correlation Coefficient",
+       fill = "Significance") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"),
+        axis.text = element_text(size = 10),
+        legend.position = "bottom") +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.5)
+
+ggsave("PGIC_correlation_results/correlation_barplot.png", p1, width = 10, height = 6, dpi = 300)
+
+# 2. Correlation heatmap using corrplot
+png("PGIC_correlation_results/correlation_heatmap.png", width = 800, height = 600, res = 150)
+corrplot(cor_matrix, method = "color", type = "upper", order = "hclust",
+         tl.cex = 0.8, tl.col = "black", tl.srt = 45,
+         col = colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))(200),
+         addCoef.col = "black", number.cex = 0.7,
+         title = "Correlation Matrix Heatmap", mar = c(0,0,2,0))
+dev.off()
+
+# 3. Scatter plots for significant correlations
+significant_vars <- correlation_results$Variable[correlation_results$P_value < 0.05]
+
+if(length(significant_vars) > 0) {
+  plot_list <- list()
+  
+  for(i in seq_along(significant_vars)) {
+    var <- significant_vars[i]
+    if(var %in% names(PGIC_data)) {
+      r_val <- correlation_results$Correlation[correlation_results$Variable == var]
+      p_val <- correlation_results$P_value[correlation_results$Variable == var]
+      
+      p <- ggplot(PGIC_data, aes_string(x = var, y = "PGIC")) +
+        geom_point(alpha = 0.6, color = "#2E86AB") +
+        geom_smooth(method = "lm", color = "#A23B72", fill = "#A23B72", alpha = 0.2) +
+        labs(title = paste0(var, " vs PGIC"),
+             subtitle = sprintf("r = %.3f, p = %.3f", r_val, p_val),
+             x = var, y = "PGIC") +
+        theme_minimal() +
+        theme(plot.title = element_text(size = 11, face = "bold"))
+      
+      plot_list[[i]] <- p
+    }
+  }
+  
+  # Arrange plots in a grid
+  if(length(plot_list) > 0) {
+    n_plots <- length(plot_list)
+    n_cols <- min(3, n_plots)
+    n_rows <- ceiling(n_plots / n_cols)
+    
+    combined_plot <- do.call(grid.arrange, c(plot_list, ncol = n_cols))
+    ggsave("PGIC_correlation_results/significant_scatterplots.png", combined_plot, 
+           width = n_cols * 4, height = n_rows * 3, dpi = 300)
+  }
+}
+
+# 4. Summary statistics plot
+p4 <- ggplot(correlation_results, aes(x = abs(Correlation), y = -log10(P_value))) +
+  geom_point(aes(color = Significant, size = N_complete), alpha = 0.7) +
+  geom_text(aes(label = Variable), vjust = -0.5, size = 3) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "red", alpha = 0.7) +
+  scale_color_manual(values = c("Significant (p<0.05)" = "#2E86AB", "Not Significant" = "#A23B72")) +
+  labs(title = "Correlation Magnitude vs Statistical Significance",
+       subtitle = "Dashed line indicates p = 0.05 threshold",
+       x = "Absolute Correlation Coefficient",
+       y = "-log10(p-value)",
+       color = "Significance",
+       size = "Sample Size") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+#ggsave("PGIC_correlation_results/volcano_plot.png", p4, width = 10, height = 6, dpi = 300)
+
+# Print summary
+cat("\nAnalysis complete! Files saved in 'PGIC_correlation_results/' directory:\n")
+cat("- correlation_results.txt: Complete text output\n")
+cat("- correlation_table.csv: Correlation results table\n")
+cat("- correlation_matrix.csv: Full correlation matrix\n")
+cat("- correlation_barplot.png: Bar plot of correlations\n")
+cat("- correlation_heatmap.png: Correlation matrix heatmap\n")
+cat("- volcano_plot.png: Correlation magnitude vs significance\n")
+if(exists("significant_vars") && length(significant_vars) > 0) {
+  cat("- significant_scatterplots.png: Scatter plots for significant correlations\n")
+}
+
+# Display summary in console
+cat("\n=== SUMMARY ===\n")
+cat("Variables analyzed:", length(correlation_results$Variable), "\n")
+cat("Significant correlations (p < 0.05):", sum(correlation_results$P_value < 0.05, na.rm = TRUE), "\n")
+if(nrow(correlation_results) > 0) {
+  strongest_corr <- correlation_results[which.max(abs(correlation_results$Correlation)), ]
+  cat("Strongest correlation:", strongest_corr$Variable, "(r =", round(strongest_corr$Correlation, 3), ")\n")
+}
+
+
+
+
+
+
+
+
+
+PGIC_data <- read.table(pipe("pbpaste"), header = TRUE, sep = "\t")
+head(PGIC_data)
+
+# packages
+library(dplyr)
+library(purrr)
+
+# ---- helper to compute correlations vs PGIC ----
+corr_with_pgic <- function(df, y = "PGIC") {
+  stopifnot(y %in% names(df))
+  yv <- df[[y]]
+  
+  # numeric variables (except PGIC)
+  num_vars <- names(df)[sapply(df, is.numeric) & names(df) != y]
+  
+  res_num <- map_dfr(num_vars, function(v) {
+    x <- df[[v]]
+    keep <- complete.cases(x, yv)
+    if (sum(keep) < 3) {
+      tibble(variable = v, n = sum(keep), method = "Spearman",
+             rho = NA_real_, p = NA_real_)
+    } else {
+      ct <- suppressWarnings(cor.test(x[keep], yv[keep],
+                                      method = "spearman", exact = FALSE))
+      tibble(variable = v, n = sum(keep), method = "Spearman",
+             rho = unname(ct$estimate), p = ct$p.value)
+    }
+  })
+  
+  # binary categorical variables (character/factor with 2 levels)
+  fac_vars <- names(df)[sapply(df, function(z) is.factor(z) || is.character(z))]
+  fac_vars <- setdiff(fac_vars, y)
+  
+  res_fac <- map_dfr(fac_vars, function(v) {
+    f <- df[[v]]
+    if (is.character(f)) f <- factor(f)
+    if (!is.factor(f) || length(levels(f)) != 2) return(NULL)
+    lv <- levels(f)
+    x <- as.integer(f == lv[2])     # encode as 0/1
+    keep <- complete.cases(x, yv)
+    if (sum(keep) < 3) {
+      tibble(variable = v, n = sum(keep), method = "Spearman (binary)",
+             rho = NA_real_, p = NA_real_, reference = lv[1], compared_to = lv[2])
+    } else {
+      ct <- suppressWarnings(cor.test(x[keep], yv[keep],
+                                      method = "spearman", exact = FALSE))
+      tibble(variable = v, n = sum(keep), method = "Spearman (binary)",
+             rho = unname(ct$estimate), p = ct$p.value,
+             reference = lv[1], compared_to = lv[2])
+    }
+  })
+  
+  bind_rows(res_num, res_fac) %>%
+    mutate(direction = case_when(
+      is.na(rho) ~ NA_character_,
+      rho > 0 ~ "positive",
+      rho < 0 ~ "negative",
+      TRUE ~ "zero"
+    )) %>%
+    arrange(p)
+}
+
+# ---- run on your data frame PGIC_lost ----
+vars_of_interest <- c(
+  "age","bmi","FMS_score","FIQ_score","SCL_somat_score",
+  "BAI_score","BDI_score","PSQI_score","PSS_score","PPT",
+  "sex","FSQ_depression","cond"
+)
+
+vars_of_interest <- intersect(vars_of_interest, names(PGIC_lost))
+tbl_corr <- corr_with_pgic(PGIC_lost[, c(vars_of_interest, "PGIC")])
+
+print(tbl_corr, n = Inf)
+# or prettier
+# knitr::kable(tbl_corr, digits = 3, caption = "Correlation of variables with PGIC (Spearman)")
+
+
+
+
+# Point-biserial correlation: sex vs PGIC
+# (sex should have exactly 2 levels)
+
+sex_var <- factor(PGIC_lost$sex)   # make sure it's factor
+levels(sex_var)  # check levels, e.g. "Female", "Male"
+
+# encode as 0/1
+sex01 <- as.integer(sex_var == levels(sex_var)[2])
+
+# correlation with PGIC
+keep <- complete.cases(sex01, PGIC_lost$PGIC)
+cor.test(sex01[keep], PGIC_lost$PGIC[keep], method = "pearson")
+
+
+
+
+
+
+####PGIC lost of follow up
+
+PGIC_lost <- read.table(pipe("pbpaste"), header = TRUE, sep = "\t")
+head(PGIC_lost)
+
+
+# Assuming your data frame is PGIC_lost
+
+# Function to test association
+test_assoc <- function(var, group) {
+  if (is.numeric(var)) {
+    # Wilcoxon rank-sum test for numeric variables
+    test <- wilcox.test(var ~ group)
+    return(c("numeric", test$statistic, test$p.value))
+  } else {
+    # Fisher's Exact test for categorical variables
+    test <- fisher.test(table(var, group))
+    return(c("categorical", NA, test$p.value))
+  }
+}
+
+# Run tests for all variables except DI and fudata
+results <- do.call(rbind, lapply(names(PGIC_lost)[!names(PGIC_lost) %in% c("DI", "fudata")], function(varname) {
+  out <- test_assoc(PGIC_lost[[varname]], PGIC_lost$fudata)
+  data.frame(
+    Variable = varname,
+    Type = out[1],
+    Statistic = as.numeric(out[2]),
+    P_value = as.numeric(out[3]),
+    stringsAsFactors = FALSE
+  )
+}))
+
+# Adjust p-values for multiple testing (optional)
+results$P_adj <- p.adjust(results$P_value, method = "fdr")
+
+# Print results
+print(results)
+
+
+
+
 # Extract the unique PID 
 ids_to_keep <- unique(phenos_FM_mine$PID)
 
