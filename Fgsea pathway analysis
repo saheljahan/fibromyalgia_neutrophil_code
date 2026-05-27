@@ -1,0 +1,1057 @@
+
+
+######################################################################################
+####################################Fgsea#pathways####################################
+######################################################################################
+
+
+
+
+
+sjahan6@hpg:~/neutrophil_data/neutro_data_clean/neutrophil_cases$ cat /home/mparis15/GENOME/GO/GO_from_DESeq2.bat
+#!/bin/bash
+
+
+
+aDB=${2}
+# PharmGKB not uses aDB
+# aDB=GOBP
+# aDB=GOMF
+# aDB=GOCC
+# aDB=Reactome
+# aDB=MSigdb
+# aDB=IOB
+# aDB=NetPath
+# aDB=Panther
+# aDB=NCI
+# aDB=HumanCyc
+# aDB=WikiPathways
+# aDB=KEGG
+# aDB=TFs
+# aDB=DPs
+# aDB=DrugBank
+# aDB=PharmGKB
+
+# if undefined or empty, then choose GOBP
+if [ -z ${aDB} ]; then
+  aDB=GOBP
+fi
+
+
+#<<<<<<<<<< regular GO, since MSigDB's seem truncated
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+  rrr <- read.table( "neutrophils_cases_NAR_vs_NNAR.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+# desc <- read.table( "/scratch/mparis15/PATHWAY/pathway_desc_GV4.txt",
+# desc <- read.table( "/scratch/mparis15/PATHWAY/pathway_desc_neuroinflam.txt",
+# contains all three CC, BP and MF:
+# desc <- read.table( "/scratch/mparis15/PATHWAY/pathway_desc.txt",
+# desc <- read.table( "/home/mparis15/GENOME/PharmGKB/pathway_desc.txt",
+# desc <- read.table( "/scratch/mparis15/PATHWAY_2019dec/pathway_desc_${aDB}.txt",
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+# "fgsea_neutrophil_case_NAR_vs_NNAR.GO.txt",
+  "fgsea_neutrophil_case_NAR_vs_NNAR.GOBP.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+#####Fgsea in controls stimulated vs non stimulated
+####################################controls####################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "controls.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "neutrophil_control_NAR_vs_NNAR_genesymbol_.GOBP.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+#####Fgsea in cases stimulated vs non stimulated
+####################################case####################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "cases.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "neutrophil_case_NAR_vs_NNAR.GOBP.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+
+
+
+
+#####Fgsea in stimulated neutrophils case vs control
+####################################NAR####################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "NAR.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "neutrophil_NAR_case_vs_control.GOBP.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+
+
+
+#####Fgsea in non stimulated neutrophils case vs control
+####################################NAR####################################
+
+
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "NNAR.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "neutrophil_NNAR_case_vs_control.GOBP.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+
+
+
+
+#####Fgsea in non stimulated neutrophils improver vs persister
+####################################NAR####################################
+
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "neutrophil_NNAR_case_IvsNI_DEG_fileforpathway.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "genesymbol", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"genesymbol"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "neutrophil_NNAR_case_IvsNI_DEG_pathway.GOBP.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####Fgsea in stimulated neutrophils improver vs persister
+####################################NAR####################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "neutrophil_NNAR_case_IvsNI_DEG_fileforpathway.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "genesymbol", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"genesymbol"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "neutrophil_NNAR_case_IvsNI_DEG_pathway.GOBP.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+
+
+###############################interaction######PGIC vs cond###################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "neutrophil_PGICandNAS_interaction_73.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "genesymbol", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"genesymbol"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "Fgsea_neutrophil_PGICandNAS_interaction_73.GOBP.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+
+
+
+
+
+
+
+
+
+####Fgsea in non stimulated neutrophils improvers vs persisters
+#####################################NNAR_PGIC73_R_vs_P###################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "DEG_neutrophil_NNAR_PGIC73_R_vs_P_forpathway.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "Fgsea_neutrophil_NNAR_PGIC73_R_vs_P_forpathway.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+####Fgsea in stimulated neutrophils improvers vs persisters
+####################################73#NAR_PGIC73_R_vs_P###################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "DEG_neutrophil_NAR_PGIC73_R_vs_P_forpathway.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "Fgsea_neutrophil_NAR_PGIC73_R_vs_P.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+#######################  follow up  ##################################
+#######################  stimulated vs non stimulated  ##################################
+#######################  Improvers  ##################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "DEG_neutrophil_FM_Resolvers_S_vs_NS_lenient.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "Fgsea_neutrophil_FM_Resolvers_S_vs_NS_lenient.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+#######################  follow up  ##################################
+#######################  Stimulated vs NS  ##################################
+#######################  Persisters  ##################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "DEG_neutrophil_FM_Persistants_S_vs_NS_lenient.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "Fgsea_neutrophil_FM_Persistants_S_vs_NS_lenient.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
+
+
+#######################  Improver vs Control  ##################################
+
+
+R --no-save --quiet << EOF
+library(fgsea)
+library(parallel)
+# library(ggplot2)
+
+
+
+  rrr <- read.table( "DEG_neutrophil_NS_R_vs_control_for_pathway.txt",
+   sep="\t", header=TRUE, as.is=TRUE, stringsAsFactors=FALSE )
+  O   <- order( -rrr[,"stat"] )
+  rrr <- rrr[ O, ]
+# R   <- which( ( rrr[["baseMean"]] >= 10 ) & ( ! is.na( rrr[["padj"]] ) ) )
+  R   <- which( ! is.na( rrr[["padj"]] ) )
+  rankedv        <- as.vector( rrr[["stat"]][R] )
+  names(rankedv) <- rownames( rrr[R,] )
+  if( length( grep( "gene", colnames( rrr ) ) ) == 1 )
+     names(rankedv) <- rrr[R,"gene"]
+
+
+  desc <- read.table( "/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_desc.txt",
+ quote="",
+ sep="\t", header=FALSE,
+ as.is=TRUE, stringsAsFactors=FALSE,
+ colClasses=c("character","character"))
+colnames( desc ) <- c("pathway","desc")
+
+
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_GV4.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP_neuroinflam.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOMF.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOCC.gmt")
+# goBP <- gmtPathways("/home/mparis15/AcutePain/pathways_GOBP.gmt")
+# goBP <- gmtPathways("/home/mparis15/GENOME/PharmGKB/PharmGKB.gmt")
+  goBP <- gmtPathways("/home/sjahan6/pathway/pathway_july_2022/Human_GOBP_fgsea.gmt")
+# select ONLY THAT GO
+# if( nchar( "GOBP" ) > 0 ){ goBP <- list( \`GOBP\`=goBP[[ "GOBP" ]] ) }
+
+set.seed( 666 )
+gsea_goBP <- fgsea(
+  pathways = goBP,
+  stats    = rankedv,
+  minSize  = 1,
+  maxSize  = 1000,
+  nperm    = 1e7,
+  nproc    = ceiling( detectCores() / 2 ) )
+
+gsea_goBP <- merge( desc, gsea_goBP, by.x="pathway", by.y="pathway" )
+O <- order( gsea_goBP[[ "pval" ]] )
+
+gsea_goBP[[ "leadingEdge" ]] <-
+ sapply( gsea_goBP[[ "leadingEdge" ]],
+        FUN = paste, collapse = "," )
+
+write.table( gsea_goBP[ head( O ), ], sep="\t",
+  row.names=FALSE, col.names=TRUE, quote=FALSE )
+
+
+# specific pathways dumped on screen
+# if( nchar( "GOBP" ) == 0 ) {
+write.table( gsea_goBP[ O, ],
+  "Fgsea_neutrophil_NS_R_vs_control_for_pathway.txt",
+  sep="\t",
+  row.names=FALSE,
+  col.names=TRUE,
+  quote=FALSE )
+# }
+EOF
+#>>>>>>>>>>
+
+
