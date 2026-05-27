@@ -1,0 +1,51 @@
+#KS test
+setwd("~/Documents/Lab/FM/STM submission files")
+library(readxl)
+
+
+#Improver response vs persisters response
+
+
+Improver <- read_excel("Supplementary Table 13.xlsx")
+Persister <- read_excel("Supplementary Table 14.xlsx")
+
+
+Improver$padj -> Improver_pval
+Persister$padj -> Persister_pval
+Improver_pval <- Improver$padj[1:30000]
+Persister_pval <- Persister$padj[1:30000]
+
+padj_ks <- ks.test(Improver_pval, Persister_pval)
+
+
+Improver_logfold <- Improver$log2FoldChange[1:30000]
+Persister_logfold <- Persister$log2FoldChange[1:30000]
+
+logfold_ks <- ks.test(Improver_logfold, Persister_logfold)
+
+
+
+#case response vs control response
+
+
+control <- read_excel("Supplementary Table 4.xlsx")
+case <- read_excel("Supplementary Table 5.xlsx")
+
+
+control$padj -> control_pval
+case$padj -> case_pval
+control_pval <- control$padj[1:30000]
+case_pval <- case$padj[1:30000]
+
+padj_ks <- ks.test(control_pval, case_pval)
+
+
+control_logfold <- control$log2FoldChange[1:30000]
+case_logfold <- case$log2FoldChange[1:30000]
+
+logfold_ks <- ks.test(control_logfold, case_logfold)
+
+
+
+
+
