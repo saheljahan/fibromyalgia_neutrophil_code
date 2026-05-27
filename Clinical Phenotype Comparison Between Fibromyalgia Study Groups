@@ -1,0 +1,350 @@
+
+# Extract the unique PID 
+ids_to_keep <- unique(phenos_FM_mine$PID)
+
+# Filter phenos_FM to keep only rows where si_status is in ids_to_keep
+filtered_phenos_FM <- phenos_FM[phenos_FM$subject_id %in% ids_to_keep, ]
+
+# Show the dimensions of the original and filtered dataframes
+cat("Original phenos_FM dimensions:", dim(phenos_FM)[1], "rows,", dim(phenos_FM)[2], "columns\n")
+cat("Filtered phenos_FM dimensions:", dim(filtered_phenos_FM)[1], "rows,", dim(filtered_phenos_FM)[2], "columns\n")
+
+
+write.csv(filtered_phenos_FM, "filtered_phenos_all.csv", row.names=TRUE)
+
+str(phenos_FM$subject_id)
+str(phenos_FM_mine$PID)
+
+# Merge the dataframes
+merged_data <- merge(phenos_FM, phenos_FM_mine, 
+                     by.x = "subject_id", 
+                     by.y = "PID", 
+                     all = FALSE) 
+
+# Check results
+head(merged_data)
+dim(phenos_FM)
+dim(phenos_FM_mine)
+dim(merged_data)
+
+
+write.csv(merged_data, "filtered_phenos_all_merged.csv", row.names=TRUE)
+
+
+
+## Tests - Medians, IQRs, Exact Wilcoxon p-values 
+
+library(dplyr)
+library(tableone)
+library(coin)  # For exact Wilcoxon test
+library(knitr)
+library(DT)
+
+filtered_phenos_FM$status <- factor(filtered_phenos_FM$status)
+filtered_phenos_FM$si_gender <- factor(filtered_phenos_FM$si_gender, labels = c("Male", "Female"))
+
+continuous_vars <- c("si_age", "ghs_bmi", "FMS_score", "FIQ_score", "SCL_somat_score", 
+                     "BAI_score", "BDI_score", "PSQI_score", "PSS_score", "PPT")
+
+create_median_table <- function(data, variables, group_var) {
+  result <- data.frame(Variable = character(),
+                       Group = character(),
+                       N = integer(),
+                       Median = numeric(),
+                       IQR_Q1 = numeric(),
+                       IQR_Q3 = numeric(),
+                       P_value = numeric(),
+                       stringsAsFactors = FALSE)
+  
+  groups <- levels(factor(data[[group_var]]))
+  
+  for (var in variables) {
+    if (is.numeric(data[[var]])) {
+      group_stats <- lapply(groups, function(g) {
+        values <- data[[var]][data[[group_var]] == g]
+        values <- values[!is.na(values)]
+        n <- length(values)
+        if (n > 0) {
+          med <- median(values, na.rm = TRUE)
+          q1 <- quantile(values, 0.25, na.rm = TRUE)
+          q3 <- quantile(values, 0.75, na.rm = TRUE)
+          return(list(n = n, median = med, q1 = q1, q3 = q3))
+        } else {
+          return(list(n = 0, median = NA, q1 = NA, q3 = NA))
+        }
+      })
+      
+      test_data <- data[!is.na(data[[var]]), c(var, group_var)]
+      
+      if (nrow(test_data) > 0 && length(unique(test_data[[group_var]])) > 1) {
+        g1_data <- test_data[[var]][test_data[[group_var]] == groups[1]]
+        g2_data <- test_data[[var]][test_data[[group_var]] == groups[2]]
+        
+        if (length(g1_data) * length(g2_data) < 10000) {
+          wilcox_test_result <- try(wilcox.test(g1_data, g2_data, exact = TRUE), silent = TRUE)
+        } else {
+          wilcox_test_result <- try(wilcox.test(g1_data, g2_data, exact = FALSE), silent = TRUE)
+        }
+        
+        if (!inherits(wilcox_test_result, "try-error")) {
+          p_value <- wilcox_test_result$p.value
+          
+          if (p_value == 0) {
+            wilcox_exact <- try(wilcox_test(as.formula(paste(var, "~", group_var)), 
+                                            data = test_data,
+                                            distribution = "exact"), silent = TRUE)
+            if (!inherits(wilcox_exact, "try-error")) {
+              p_value <- pvalue(wilcox_exact)
+            }
+          }
+        } else {
+          p_value <- NA
+        }
+      } else {
+        p_value <- NA
+      }
+      
+      for (i in seq_along(groups)) {
+        result <- rbind(result, data.frame(
+          Variable = var,
+          Group = groups[i],
+          N = group_stats[[i]]$n,
+          Median = group_stats[[i]]$median,
+          IQR_Q1 = group_stats[[i]]$q1,
+          IQR_Q3 = group_stats[[i]]$q3,
+          P_value = if (i == 1) p_value else NA,
+          stringsAsFactors = FALSE
+        ))
+      }
+    }
+  }
+  
+  return(result)
+}
+
+# Generate and format the table
+median_table <- create_median_table(filtered_phenos_FM, continuous_vars, "status")
+
+options(scipen = -100)  # Force scientific notation for small p-values
+
+formatted_table <- median_table %>%
+  mutate(
+    `Median [IQR]` = sprintf("%.2f [%.2f-%.2f]", Median, IQR_Q1, IQR_Q3),
+    P_value = ifelse(is.na(P_value), "", 
+                     ifelse(P_value < 0.00001, 
+                            format(P_value, digits = 4, scientific = TRUE),
+                            sprintf("%.6f", P_value)))
+  ) %>%
+  select(Variable, Group, N, `Median [IQR]`, P_value)
+
+
+
+
+
+
+##Tests
+
+library(dplyr)
+library(tableone)
+library(coin)  # For exact Wilcoxon test
+
+filtered_phenos_FM$status <- factor(filtered_phenos_FM$status)
+
+filtered_phenos_FM$si_gender <- factor(filtered_phenos_FM$si_gender, 
+                                       labels = c("Male", "Female"))
+
+continuous_vars <- c("si_age", "ghs_bmi", "FMS_score", "FIQ_score", "SCL_somat_score", 
+                     "BAI_score", "BDI_score", "PSQI_score", "PSS_score", "PPT")
+
+create_median_table <- function(data, variables, group_var) {
+  result <- data.frame(Variable = character(),
+                       Group = character(),
+                       N = integer(),
+                       Median = numeric(),
+                       IQR_Q1 = numeric(),
+                       IQR_Q3 = numeric(),
+                       P_value = numeric(),
+                       stringsAsFactors = FALSE)
+  
+  groups <- levels(factor(data[[group_var]]))
+  
+  for (var in variables) {
+    if (is.numeric(data[[var]])) {
+      # Calculate statistics for each group
+      group_stats <- lapply(groups, function(g) {
+        values <- data[[var]][data[[group_var]] == g]
+        values <- values[!is.na(values)]
+        n <- length(values)
+        if (n > 0) {
+          med <- median(values, na.rm = TRUE)
+          q1 <- quantile(values, 0.25, na.rm = TRUE)
+          q3 <- quantile(values, 0.75, na.rm = TRUE)
+          return(list(n = n, median = med, q1 = q1, q3 = q3))
+        } else {
+          return(list(n = 0, median = NA, q1 = NA, q3 = NA))
+        }
+      })
+      
+      # Perform Wilcoxon rank-sum test - we'll calculate exact p-values
+      test_data <- data[!is.na(data[[var]]), c(var, group_var)]
+      
+      if (nrow(test_data) > 0 && length(unique(test_data[[group_var]])) > 1) {
+        # Use wilcox.test with lower.tail=FALSE for right-sided test
+        # This gives more precision for very small p-values
+        g1_data <- test_data[[var]][test_data[[group_var]] == groups[1]]
+        g2_data <- test_data[[var]][test_data[[group_var]] == groups[2]]
+        
+        # Use exact=TRUE whenever computationally feasible
+        if (length(g1_data) * length(g2_data) < 10000) {
+          wilcox_test_result <- try(wilcox.test(g1_data, g2_data, exact = TRUE), silent = TRUE)
+        } else {
+          wilcox_test_result <- try(wilcox.test(g1_data, g2_data, exact = FALSE), silent = TRUE)
+        }
+        
+        if (!inherits(wilcox_test_result, "try-error")) {
+          p_value <- wilcox_test_result$p.value
+          
+          # If p-value is still 0, try using scientific notation with high precision
+          if (p_value == 0) {
+            # Use wilcox_test from coin package for greater precision
+            wilcox_exact <- try(wilcox_test(as.formula(paste(var, "~", group_var)), 
+                                            data = test_data,
+                                            distribution = "exact"), silent = TRUE)
+            
+            if (!inherits(wilcox_exact, "try-error")) {
+              p_value <- pvalue(wilcox_exact)
+            }
+          }
+        } else {
+          p_value <- NA
+        }
+      } else {
+        p_value <- NA
+      }
+      
+      for (i in seq_along(groups)) {
+        result <- rbind(result, data.frame(
+          Variable = var,
+          Group = groups[i],
+          N = group_stats[[i]]$n,
+          Median = group_stats[[i]]$median,
+          IQR_Q1 = group_stats[[i]]$q1,
+          IQR_Q3 = group_stats[[i]]$q3,
+          P_value = if (i == 1) p_value else NA,
+          stringsAsFactors = FALSE
+        ))
+      }
+    }
+  }
+  
+  return(result)
+}
+
+# Create the custom table
+median_table <- create_median_table(filtered_phenos_FM, continuous_vars, "status")
+
+#notation
+library(knitr)
+options(scipen = -100)  
+formatted_table <- median_table %>%
+  mutate(
+    `Median [IQR]` = sprintf("%.2f [%.2f-%.2f]", Median, IQR_Q1, IQR_Q3),
+    P_value = ifelse(is.na(P_value), "", 
+                     ifelse(P_value < 0.00001, 
+                            format(P_value, digits = 4, scientific = TRUE),
+                            sprintf("%.6f", P_value)))
+  ) %>%
+  select(Variable, Group, N, `Median [IQR]`, P_value)
+
+# Print 
+print(kable(formatted_table))
+datatable(formatted_table)
+
+num_rows <- ceiling(length(continuous_vars) / 3)
+par(mfrow = c(num_rows, 3))
+
+# boxplots
+for (var in continuous_vars) {
+  if (sum(!is.na(filtered_phenos_FM[[var]])) > 0) {
+    # Get p-value from table
+    p_val <- median_table$P_value[median_table$Variable == var & !is.na(median_table$P_value)]
+    
+    if (!is.na(p_val) && p_val < 0.00001) {
+      p_label <- format(p_val, digits = 4, scientific = TRUE)
+    } else {
+      p_label <- sprintf("%.6f", p_val)
+    }
+    
+    boxplot(as.formula(paste(var, "~ status")), 
+            data = filtered_phenos_FM,
+            main = paste(var, "(p =", p_label, ")"),
+            ylab = var,
+            xlab = "Group")
+    
+    # Add median markers
+    for (g in 1:length(levels(factor(filtered_phenos_FM$status)))) {
+      group_data <- filtered_phenos_FM[[var]][filtered_phenos_FM$status == levels(factor(filtered_phenos_FM$status))[g]]
+      points(g, median(group_data, na.rm = TRUE), col = "red", pch = 19)
+    }
+  }
+}
+
+
+
+
+
+
+
+#follow up
+# proper levels
+phenos_FM_mine_followup$Follow_up <- factor(phenos_FM_mine_followup$Follow_up)
+
+# Define continuous variables to test
+continuous_vars <- c("si_age", "ghs_bmi", "FMS_score", "FIQ_score", "SCL_somat_score", 
+                     "BAI_score", "BDI_score", "PSQI_score", "PSS_score", "PPT")
+
+# Generate table comparing P vs R using Wilcoxon Rank Sum
+median_table <- create_median_table(phenos_FM_mine_followup, continuous_vars, "Follow_up")
+
+# Format results for readability
+formatted_table <- median_table %>%
+  mutate(
+    `Median [IQR]` = sprintf("%.2f [%.2f–%.2f]", Median, IQR_Q1, IQR_Q3),
+    P_value = ifelse(is.na(P_value), "", 
+                     ifelse(P_value < 0.00001, 
+                            format(P_value, digits = 4, scientific = TRUE),
+                            sprintf("%.6f", P_value)))
+  ) %>%
+  select(Variable, Group, N, `Median [IQR]`, P_value)
+
+print(kable(formatted_table))
+
+
+# Boxplot comparison
+num_rows <- ceiling(length(continuous_vars) / 3)
+par(mfrow = c(num_rows, 3))
+
+for (var in continuous_vars) {
+  if (sum(!is.na(phenos_FM_mine_followup[[var]])) > 0) {
+    p_val <- median_table$P_value[median_table$Variable == var & !is.na(median_table$P_value)]
+    p_label <- if (!is.na(p_val) && p_val < 0.00001) {
+      format(p_val, digits = 4, scientific = TRUE)
+    } else {
+      sprintf("%.6f", p_val)
+    }
+    
+    boxplot(as.formula(paste(var, "~ Follow_up")), 
+            data = phenos_FM_mine_followup,
+            main = paste(var, "(p =", p_label, ")"),
+            ylab = var,
+            xlab = "Follow-up Group")
+    
+    for (g in 1:length(levels(phenos_FM_mine_followup$Follow_up))) {
+      group_data <- phenos_FM_mine_followup[[var]][phenos_FM_mine_followup$Follow_up == levels(phenos_FM_mine_followup$Follow_up)[g]]
+      points(g, median(group_data, na.rm = TRUE), col = "red", pch = 19)
+    }
+  }
+}
+
+
+
