@@ -6,8 +6,6 @@
 
 
 
-
-
 sjahan6@hpg:~/neutrophil_data/neutro_data_clean/neutrophil_cases$ cat /home/mparis15/GENOME/GO/GO_from_DESeq2.bat
 #!/bin/bash
 
