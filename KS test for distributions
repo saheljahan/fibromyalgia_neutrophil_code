@@ -1,4 +1,6 @@
-#KS test
+########
+#KS test for pvalue and log2foldchange distributions
+########
 setwd("~/Documents/Lab/FM/STM submission files")
 library(readxl)
 
