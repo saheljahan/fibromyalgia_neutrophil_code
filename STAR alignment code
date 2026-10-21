@@ -1,6 +1,6 @@
-
-
+#mapping
 ######################################################################
+
 ls -1 /mnt/nfs/backup/data/fibromyalgia/rna-seq/*_R1.fastq.gz \
   | cut -d '/' -f 8 \
   | awk '{ gsub("_R1.fastq.gz","",$1); print $1 }' \
