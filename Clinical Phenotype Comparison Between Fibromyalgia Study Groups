@@ -1,7 +1,8 @@
 
-# ===== Table 1 cohort analysis (fixed tests: Wilcoxon & Chi-square) =====
 
+# ===== Table 1 cohort analysis (fixed tests: Wilcoxon & Chi-square) =====
 # ================== Clean Table 1 (Wilcoxon + Chi-square) ==================
+
 # Load required libraries
 library(readxl)
 library(dplyr)
