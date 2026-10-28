@@ -1,0 +1,704 @@
+# FM neutrophil proteomics: interaction analysis, GO:BP FGSEA, and plots
+
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(stringr)
+library(tibble)
+library(fgsea)
+library(msigdbr)
+library(openxlsx)
+library(ggplot2)
+library(grid)
+library(ggrepel)
+
+set.seed(123)
+
+# Files
+ms_input   <- "ms_data.xlsx"
+ms_sheet   <- "log2"
+ms_results <- "ms_interaction.xlsx" #my proteomics output
+ms_fgsea   <- "ms_fgsea.xlsx" #proteomic result output
+rna_input  <- "rna_interaction.xlsx" # my Bulk RNA-seq FMxLPS interaction results
+rna_sheet  <- "interaction term analysis" 
+rna_fgsea  <- "rna_fgsea.xlsx" #Bulk RNA-seq FMxLPS interaction pathway results
+
+stim_order <- c("LPS", "IL1", "PMA", "TNF")
+comparisons <- tribble(
+  ~stimulus, ~reference,
+  "IL1",    "Ctrl",
+  "TNF",    "Ctrl",
+  "PMA",    "DMSO",
+  "LPS",    "Ctrl"
+)
+
+# -----------------------------------------------------------------------------
+# Proteomics interaction analysis
+# Model: log2 abundance ~ participant + stimulation + cohort:stimulation
+# -----------------------------------------------------------------------------
+
+ms <- read_excel(ms_input, sheet = ms_sheet)
+protein_id <- as.character(ms[[1]])
+mat <- as.matrix(ms[, -1])
+storage.mode(mat) <- "numeric"
+
+meta <- tibble(
+  sample = colnames(mat),
+  participant = sub("_.*$", "", sample),
+  treatment = sub("^[^_]+_", "", sample),
+  cohort = if_else(grepl("^HC", participant, ignore.case = TRUE), "HC", "FM")
+)
+
+fit_protein <- function(y, protein, stimulus, reference) {
+  d <- meta %>%
+    filter(treatment %in% c(reference, stimulus)) %>%
+    mutate(abundance = as.numeric(y[match(sample, meta$sample)])) %>%
+    select(participant, cohort, treatment, abundance) %>%
+    pivot_wider(names_from = treatment, values_from = abundance) %>%
+    filter(is.finite(.data[[reference]]), is.finite(.data[[stimulus]]))
+
+  n_hc <- sum(d$cohort == "HC")
+  n_fm <- sum(d$cohort == "FM")
+  if (n_hc < 2 || n_fm < 2) return(NULL)
+
+  model_data <- bind_rows(
+    tibble(participant = d$participant, cohort = d$cohort,
+           stimulation = 0, abundance = d[[reference]]),
+    tibble(participant = d$participant, cohort = d$cohort,
+           stimulation = 1, abundance = d[[stimulus]])
+  ) %>%
+    mutate(
+      participant = factor(participant),
+      cohort = factor(cohort, levels = c("HC", "FM")),
+      fm_stim = stimulation * as.numeric(cohort == "FM")
+    )
+
+  X <- cbind(
+    model.matrix(~ 0 + participant, data = model_data),
+    stimulation = model_data$stimulation,
+    fm_stim = model_data$fm_stim
+  )
+
+  fit <- lm.fit(X, model_data$abundance)
+  if (fit$rank < ncol(X)) return(NULL)
+
+  df_res <- length(model_data$abundance) - fit$rank
+  if (df_res <= 0) return(NULL)
+
+  s2 <- sum(fit$residuals^2) / df_res
+  if (!is.finite(s2) || s2 <= 0) return(NULL)
+
+  beta <- fit$coefficients
+  hc_response <- beta["stimulation"]
+  interaction <- beta["fm_stim"]
+  fm_response <- hc_response + interaction
+
+  v <- solve(crossprod(X))
+  se_unscaled <- sqrt(v["fm_stim", "fm_stim"])
+  ordinary_t <- interaction / (sqrt(s2) * se_unscaled)
+  ordinary_p <- 2 * pt(-abs(ordinary_t), df = df_res)
+
+  tibble(
+    `Protein ID` = protein,
+    Gene = protein,
+    `HC response (log2)` = hc_response,
+    `FM response (log2)` = fm_response,
+    `Interaction FM-HC (log2)` = interaction,
+    `Ordinary interaction t` = ordinary_t,
+    `Ordinary interaction p` = ordinary_p,
+    residual_variance = s2,
+    residual_df = df_res,
+    se_unscaled = se_unscaled,
+    `n HC` = n_hc,
+    `n FM` = n_fm,
+    `n total` = n_hc + n_fm
+  )
+}
+
+moderate_variances <- function(res) {
+  valid <- with(res,
+    is.finite(residual_variance) & residual_variance > 0 &
+      is.finite(residual_df) & residual_df > 0
+  )
+
+  s2 <- res$residual_variance[valid]
+  df <- res$residual_df[valid]
+  e <- log(s2) - digamma(df / 2) + log(df / 2)
+  evar <- var(e) - mean(trigamma(df / 2))
+
+  df_prior <- if (is.finite(evar) && evar > 0) {
+    uniroot(function(d0) trigamma(d0 / 2) - evar, c(0.01, 1e6))$root
+  } else {
+    1e6
+  }
+
+  prior_var <- exp(mean(e) + digamma(df_prior / 2) - log(df_prior / 2))
+  post_var <- (df_prior * prior_var + df * s2) / (df_prior + df)
+
+  res$posterior_variance <- NA_real_
+  res$posterior_variance[valid] <- post_var
+  res$`Moderated t` <- res$`Interaction FM-HC (log2)` /
+    (sqrt(res$posterior_variance) * res$se_unscaled)
+  res$`Moderated p` <- 2 * pt(
+    -abs(res$`Moderated t`),
+    df = res$residual_df + df_prior
+  )
+  res$`BH FDR` <- p.adjust(res$`Moderated p`, method = "BH")
+
+  list(results = res, prior_df = df_prior, prior_variance = prior_var)
+}
+
+run_stimulus <- function(stimulus, reference) {
+  message("Running ", stimulus, " vs ", reference)
+
+  raw <- map_dfr(seq_len(nrow(mat)), ~
+    fit_protein(mat[.x, ], protein_id[.x], stimulus, reference)
+  )
+
+  mod <- moderate_variances(raw)
+
+  res <- mod$results %>%
+    mutate(
+      `Interaction ratio of ratios` = 2^`Interaction FM-HC (log2)`,
+      `Interaction category` = case_when(
+        `HC response (log2)` > 0 & `FM response (log2)` < 0 ~ "HC ↑ / FM ↓",
+        `HC response (log2)` < 0 & `FM response (log2)` > 0 ~ "FM ↑ / HC ↓",
+        abs(`HC response (log2)`) >= abs(`FM response (log2)`) ~ "Stronger in HC",
+        TRUE ~ "Stronger in FM"
+      ),
+      `p < 0.05` = `Moderated p` < 0.05,
+      `FDR < 0.05` = `BH FDR` < 0.05,
+      `p < 0.05 & ≥1.3x` = `Moderated p` < 0.05 &
+        abs(`Interaction FM-HC (log2)`) >= log2(1.3)
+    ) %>%
+    select(
+      `Protein ID`, Gene, `Interaction category`,
+      `HC response (log2)`, `FM response (log2)`,
+      `Interaction FM-HC (log2)`, `Interaction ratio of ratios`,
+      `Ordinary interaction t`, `Ordinary interaction p`,
+      `Moderated t`, `Moderated p`, `BH FDR`,
+      `p < 0.05`, `FDR < 0.05`, `p < 0.05 & ≥1.3x`,
+      `n HC`, `n FM`, `n total`
+    ) %>%
+    arrange(`Moderated p`)
+
+  cats <- c("HC ↑ / FM ↓", "FM ↑ / HC ↓", "Stronger in HC", "Stronger in FM")
+  category_summary <- tibble(Category = cats) %>%
+    mutate(
+      `All proteins` = map_int(Category, ~ sum(res$`Interaction category` == .x)),
+      `p<0.05` = map_int(Category, ~ sum(res$`Interaction category` == .x & res$`p < 0.05`))
+    )
+
+  list(
+    stimulus = stimulus,
+    reference = reference,
+    results = res,
+    category_summary = category_summary,
+    prior_df = mod$prior_df,
+    prior_variance = mod$prior_variance
+  )
+}
+
+ms_runs <- map2(comparisons$stimulus, comparisons$reference, run_stimulus)
+names(ms_runs) <- comparisons$stimulus
+
+ms_summary <- map_dfr(ms_runs, function(x) {
+  r <- x$results
+  tibble(
+    Stimulus = x$stimulus,
+    Reference = x$reference,
+    `Analyzable proteins` = nrow(r),
+    `Nominal p<0.05` = sum(r$`p < 0.05`),
+    `p<0.05 & >=1.3x` = sum(r$`p < 0.05 & ≥1.3x`),
+    `FDR<0.05` = sum(r$`FDR < 0.05`),
+    `HC up / FM down among p<0.05` = sum(r$`Interaction category` == "HC ↑ / FM ↓" & r$`p < 0.05`),
+    `FM up / HC down among p<0.05` = sum(r$`Interaction category` == "FM ↑ / HC ↓" & r$`p < 0.05`),
+    `Stronger HC among p<0.05` = sum(r$`Interaction category` == "Stronger in HC" & r$`p < 0.05`),
+    `Stronger FM among p<0.05` = sum(r$`Interaction category` == "Stronger in FM" & r$`p < 0.05`),
+    `Prior df` = x$prior_df,
+    `Prior variance` = x$prior_variance
+  )
+})
+
+write_ms_results <- function() {
+  wb <- createWorkbook()
+  title_style <- createStyle(fontSize = 14, textDecoration = "bold", fontColour = "#FFFFFF", fgFill = "#1F4E78")
+  header_style <- createStyle(textDecoration = "bold", fontColour = "#FFFFFF", fgFill = "#4472C4", halign = "center", wrapText = TRUE)
+  section_style <- createStyle(textDecoration = "bold", fontColour = "#FFFFFF", fgFill = "#5B9BD5", halign = "center")
+  note_style <- createStyle(fontColour = "#444444", fgFill = "#EAF2F8", wrapText = TRUE)
+  p_style <- createStyle(numFmt = "0.000E+00")
+  num_style <- createStyle(numFmt = "0.000000")
+
+  addWorksheet(wb, "Summary")
+  writeData(wb, "Summary", "Cohort × stimulation interaction analysis", 1, 1)
+  mergeCells(wb, "Summary", cols = 1:12, rows = 1)
+  addStyle(wb, "Summary", title_style, rows = 1, cols = 1:12, gridExpand = TRUE)
+  writeData(wb, "Summary", "Model", 3, 1)
+  writeData(wb, "Summary", "log2 abundance ~ participant + stimulation + cohort:stimulation; participant is a fixed blocking factor. Empirical-Bayes moderation was applied to protein-wise residual variances.", 3, 2)
+  mergeCells(wb, "Summary", cols = 2:12, rows = 3)
+  addStyle(wb, "Summary", note_style, rows = 3, cols = 1:12, gridExpand = TRUE)
+  writeData(wb, "Summary", ms_summary, 5, 1, headerStyle = header_style)
+  setColWidths(wb, "Summary", cols = 1:12, widths = "auto")
+  setColWidths(wb, "Summary", cols = 7:10, widths = 24)
+  freezePane(wb, "Summary", firstActiveRow = 6)
+
+  for (stim in names(ms_runs)) {
+    x <- ms_runs[[stim]]
+    r <- x$results
+
+    addWorksheet(wb, stim)
+    writeData(wb, stim, paste(stim, "cohort × stimulation interaction"), 1, 1)
+    mergeCells(wb, stim, cols = 1:18, rows = 1)
+    addStyle(wb, stim, title_style, rows = 1, cols = 1:18, gridExpand = TRUE)
+
+    writeData(wb, stim, "Model note", 3, 1)
+    writeData(wb, stim, "Paired model: log2 abundance ~ participant + stimulation + cohort:stimulation. The interaction coefficient is the FM-minus-HC difference in stimulation response.", 3, 2)
+    mergeCells(wb, stim, cols = 2:18, rows = 3)
+    addStyle(wb, stim, note_style, rows = 3, cols = 1:18, gridExpand = TRUE)
+
+    writeData(wb, stim, x$category_summary, 5, 1, headerStyle = section_style)
+    writeData(wb, stim, r, 11, 1, headerStyle = header_style)
+
+    rows <- 12:(11 + nrow(r))
+    addStyle(wb, stim, num_style, rows = rows, cols = c(4:8, 10), gridExpand = TRUE, stack = TRUE)
+    addStyle(wb, stim, p_style, rows = rows, cols = c(9, 11, 12), gridExpand = TRUE, stack = TRUE)
+    setColWidths(wb, stim, cols = 1:18, widths = "auto")
+    setColWidths(wb, stim, cols = 3, widths = 20)
+    setColWidths(wb, stim, cols = 4:15, widths = 18)
+    freezePane(wb, stim, firstActiveRow = 12)
+    addFilter(wb, stim, rows = 11, cols = 1:18)
+  }
+
+  saveWorkbook(wb, ms_results, overwrite = TRUE)
+}
+
+write_ms_results()
+print(ms_summary)
+
+# -----------------------------------------------------------------------------
+# GO:BP FGSEA helpers
+# -----------------------------------------------------------------------------
+
+go_df <- msigdbr(
+  db_species = "HS",
+  species = "Homo sapiens",
+  collection = "C5",
+  subcollection = "GO:BP"
+)
+go_bp <- lapply(split(go_df$gene_symbol, go_df$gs_name), unique)
+
+clean_pathway <- function(x) {
+  x %>%
+    str_remove("^GOBP_") %>%
+    str_replace_all("_", " ") %>%
+    str_to_sentence()
+}
+
+format_fgsea <- function(res, stimulation = NULL, direction_labels = c("FM response > HC response", "HC response > FM response")) {
+  res <- as.data.frame(res)
+  res$leadingEdge <- vapply(res$leadingEdge, paste, collapse = "; ", FUN.VALUE = character(1))
+
+  out <- res %>%
+    mutate(
+      pathway_clean = clean_pathway(pathway),
+      Direction = case_when(
+        NES > 0 ~ direction_labels[1],
+        NES < 0 ~ direction_labels[2],
+        TRUE ~ "No direction"
+      ),
+      Significant_FDR05 = padj < 0.05
+    )
+
+  if (!is.null(stimulation)) out <- mutate(out, Stimulation = stimulation)
+  out
+}
+
+# -----------------------------------------------------------------------------
+# Proteomics FGSEA
+# -----------------------------------------------------------------------------
+
+make_ms_ranks <- function(dat) {
+  x <- dat %>%
+    transmute(
+      Gene = str_trim(str_extract(as.character(Gene), "^[^;]+")),
+      stat = as.numeric(`Moderated t`)
+    ) %>%
+    filter(!is.na(Gene), Gene != "", is.finite(stat)) %>%
+    group_by(Gene) %>%
+    slice_max(abs(stat), n = 1, with_ties = FALSE) %>%
+    ungroup()
+
+  setNames(x$stat, x$Gene) %>% sort(decreasing = TRUE)
+}
+
+run_ms_fgsea <- function(stim) {
+  dat <- read_excel(ms_results, sheet = stim, skip = 10)
+  ranks <- make_ms_ranks(dat)
+
+  fgseaMultilevel(go_bp, ranks, minSize = 15, maxSize = 500, eps = 0) %>%
+    format_fgsea(stimulation = stim) %>%
+    select(Stimulation, pathway, pathway_clean, Direction, size, ES, NES,
+           pval, padj, log2err, Significant_FDR05, leadingEdge) %>%
+    arrange(padj, desc(abs(NES)))
+}
+
+ms_fgsea_runs <- setNames(map(comparisons$stimulus, run_ms_fgsea), comparisons$stimulus)
+ms_fgsea_fm <- map(ms_fgsea_runs, ~ filter(.x, NES > 0) %>% arrange(padj, desc(NES)))
+ms_fgsea_hc <- map(ms_fgsea_runs, ~ filter(.x, NES < 0) %>% arrange(padj, NES))
+
+ms_fgsea_summary <- map_dfr(comparisons$stimulus, function(stim) {
+  x <- ms_fgsea_runs[[stim]]
+  tibble(
+    Stimulation = stim,
+    `GO:BP tested` = nrow(x),
+    `FDR < 0.05 total` = sum(x$padj < 0.05, na.rm = TRUE),
+    `FDR < 0.05 toward FM` = sum(x$padj < 0.05 & x$NES > 0, na.rm = TRUE),
+    `FDR < 0.05 toward HC` = sum(x$padj < 0.05 & x$NES < 0, na.rm = TRUE),
+    `Nominal p < 0.05 toward FM` = sum(x$pval < 0.05 & x$NES > 0, na.rm = TRUE),
+    `Nominal p < 0.05 toward HC` = sum(x$pval < 0.05 & x$NES < 0, na.rm = TRUE)
+  )
+})
+
+write_fgsea_workbook <- function(file, summary, all, fm, hc) {
+  wb <- createWorkbook()
+  header <- createStyle(textDecoration = "bold", fgFill = "#D9EAF7", border = "Bottom")
+
+  addWorksheet(wb, "Summary")
+  writeData(wb, "Summary", summary)
+
+  for (stim in names(all)) {
+    sheets <- c(paste0(stim, "_ALL"), paste0(stim, "_FM"), paste0(stim, "_HC"))
+    tabs <- list(all[[stim]], fm[[stim]], hc[[stim]])
+    walk2(sheets, tabs, ~ {
+      addWorksheet(wb, .x)
+      writeData(wb, .x, .y)
+    })
+  }
+
+  for (s in names(wb)) {
+    n <- ncol(readWorkbook(wb, sheet = s))
+    if (n > 0) {
+      addStyle(wb, s, header, rows = 1, cols = 1:n, gridExpand = TRUE)
+      setColWidths(wb, s, cols = 1:n, widths = "auto")
+    }
+    freezePane(wb, s, firstRow = TRUE)
+  }
+
+  saveWorkbook(wb, file, overwrite = TRUE)
+}
+
+write_fgsea_workbook(ms_fgsea, ms_fgsea_summary, ms_fgsea_runs, ms_fgsea_fm, ms_fgsea_hc)
+print(ms_fgsea_summary)
+
+# -----------------------------------------------------------------------------
+# RNA interaction FGSEA
+# -----------------------------------------------------------------------------
+
+rna <- read_excel(rna_input, sheet = rna_sheet)
+
+rna_rank_data <- rna %>%
+  transmute(
+    Gene = as.character(gene),
+    ENS_ID = as.character(ENS_ID),
+    log2FC_interaction = as.numeric(log2FoldChange),
+    stat = as.numeric(stat),
+    pvalue = as.numeric(pvalue),
+    padj_gene = as.numeric(padj)
+  ) %>%
+  filter(!is.na(Gene), Gene != "", is.finite(stat)) %>%
+  group_by(Gene) %>%
+  slice_max(abs(stat), n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+rna_ranks <- setNames(rna_rank_data$stat, rna_rank_data$Gene) %>% sort(decreasing = TRUE)
+
+rna_all <- fgseaMultilevel(go_bp, rna_ranks, minSize = 15, maxSize = 500, eps = 0) %>%
+  format_fgsea(direction_labels = c("FM-biased interaction", "HC-biased interaction")) %>%
+  mutate(
+    Interpretation = case_when(
+      NES > 0 ~ "Pathway shifted toward a stronger/more positive stimulation response in FM",
+      NES < 0 ~ "Pathway shifted toward a stronger/more positive stimulation response in HC",
+      TRUE ~ "No directional enrichment"
+    )
+  ) %>%
+  select(pathway, pathway_clean, Direction, Interpretation, size, ES, NES,
+         pval, padj, log2err, Significant_FDR05, leadingEdge) %>%
+  arrange(padj, desc(abs(NES)))
+
+rna_fm <- filter(rna_all, NES > 0) %>% arrange(padj, desc(NES))
+rna_hc <- filter(rna_all, NES < 0) %>% arrange(padj, NES)
+
+rna_summary <- tibble(
+  Metric = c(
+    "Genes ranked", "GO:BP pathways tested", "FDR < 0.05 total",
+    "FDR < 0.05 FM-biased", "FDR < 0.05 HC-biased",
+    "Nominal p < 0.05 FM-biased", "Nominal p < 0.05 HC-biased"
+  ),
+  Value = c(
+    length(rna_ranks), nrow(rna_all),
+    sum(rna_all$padj < 0.05, na.rm = TRUE),
+    sum(rna_all$padj < 0.05 & rna_all$NES > 0, na.rm = TRUE),
+    sum(rna_all$padj < 0.05 & rna_all$NES < 0, na.rm = TRUE),
+    sum(rna_all$pval < 0.05 & rna_all$NES > 0, na.rm = TRUE),
+    sum(rna_all$pval < 0.05 & rna_all$NES < 0, na.rm = TRUE)
+  )
+)
+
+wb <- createWorkbook()
+header <- createStyle(textDecoration = "bold", fgFill = "#D9EAF7", border = "Bottom")
+for (s in c("Summary", "ALL", "FM_biased", "HC_biased")) addWorksheet(wb, s)
+writeData(wb, "Summary", rna_summary)
+writeData(wb, "ALL", rna_all)
+writeData(wb, "FM_biased", rna_fm)
+writeData(wb, "HC_biased", rna_hc)
+for (s in names(wb)) {
+  n <- ncol(readWorkbook(wb, sheet = s))
+  if (n > 0) {
+    addStyle(wb, s, header, rows = 1, cols = 1:n, gridExpand = TRUE)
+    setColWidths(wb, s, cols = 1:n, widths = "auto")
+  }
+  freezePane(wb, s, firstRow = TRUE)
+}
+saveWorkbook(wb, rna_fgsea, overwrite = TRUE)
+print(rna_summary)
+
+# -----------------------------------------------------------------------------
+# Plot helpers
+# -----------------------------------------------------------------------------
+
+stim_cols <- c(LPS = "#66C2A5", IL1 = "#F4A261", PMA = "#8E9ACB", TNF = "#E98CA7")
+
+lighten_col <- function(col, amount = 0.78) {
+  rgb <- grDevices::col2rgb(col)
+  rgb <- round(rgb + (255 - rgb) * amount)
+  grDevices::rgb(rgb[1, ] / 255, rgb[2, ] / 255, rgb[3, ] / 255)
+}
+
+format_label <- function(x, width = 18) {
+  str_to_sentence(x) %>%
+    str_replace_all(c(
+      "\\batp\\b" = "ATP", "\\btrna\\b" = "tRNA",
+      "\\brna\\b" = "RNA", "\\bdna\\b" = "DNA",
+      "\\bnf kb\\b" = "NF-κB"
+    )) %>%
+    str_wrap(width)
+}
+
+plot_theme <- theme_minimal(base_size = 11) +
+  theme(
+    plot.background = element_rect(fill = "white", colour = NA),
+    panel.background = element_rect(fill = "#F5F5F5", colour = NA),
+    panel.border = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(colour = "white", linewidth = 0.5),
+    strip.background = element_blank(),
+    strip.text.x = element_text(face = "bold", size = 12, colour = "#333333", margin = margin(b = 6)),
+    strip.text.y.left = element_text(angle = 90, face = "bold", size = 10.5, colour = "#333333"),
+    strip.placement = "outside",
+    axis.title.x = element_text(size = 11, margin = margin(t = 10)),
+    axis.title.y = element_text(size = 11, margin = margin(r = 8)),
+    axis.text.y = element_text(size = 9, colour = "#555555"),
+    axis.text.x = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+# -----------------------------------------------------------------------------
+# Proteomics FGSEA plot
+# -----------------------------------------------------------------------------
+
+ms_sheets <- excel_sheets(ms_fgsea) %>%
+  keep(~ grepl("^(IL1|TNF|PMA|LPS)_(HC|FM)$", .x))
+
+ms_plot_data <- map_dfr(ms_sheets, function(s) {
+  read_excel(ms_fgsea, sheet = s) %>%
+    transmute(
+      term = pathway_clean,
+      padj = as.numeric(padj),
+      NES = as.numeric(NES),
+      Stimulation = str_extract(s, "^[^_]+"),
+      Group = if_else(str_detect(s, "_HC$"), "HC-biased interaction", "FM-biased interaction")
+    )
+}) %>%
+  mutate(
+    Stimulation = factor(Stimulation, levels = stim_order),
+    Group = factor(Group, levels = c("HC-biased interaction", "FM-biased interaction"))
+  )
+
+ymax_ms <- 14
+
+ms_plot_data <- ms_plot_data %>%
+  filter(!is.na(term), !is.na(padj), padj > 0) %>%
+  mutate(
+    significant = padj < 0.05,
+    y = pmin(-log10(padj), ymax_ms),
+    stim_color = unname(stim_cols[as.character(Stimulation)])
+  ) %>%
+  group_by(Group, Stimulation) %>%
+  mutate(x = if (n() > 1) (sample.int(n()) - 1) / (n() - 1) else 0.5) %>%
+  ungroup() %>%
+  arrange(significant)
+
+ms_labels <- ms_plot_data %>%
+  filter(significant) %>%
+  group_by(Group, Stimulation) %>%
+  slice_min(padj, n = 3, with_ties = FALSE) %>%
+  arrange(x, .by_group = TRUE) %>%
+  mutate(
+    horizontal_rank = row_number(),
+    label_x = c(0.18, 0.50, 0.82)[horizontal_rank]
+  ) %>%
+  ungroup()
+
+label_layout <- tribble(
+  ~Group, ~Stimulation, ~horizontal_rank, ~label_y,
+  "HC-biased interaction", "LPS", 1, 12.6,
+  "HC-biased interaction", "LPS", 2, 10.2,
+  "HC-biased interaction", "LPS", 3, 8.0,
+  "HC-biased interaction", "IL1", 1, 11.0,
+  "HC-biased interaction", "IL1", 2, 13.0,
+  "HC-biased interaction", "IL1", 3, 9.5,
+  "HC-biased interaction", "PMA", 1, 8.0,
+  "HC-biased interaction", "PMA", 2, 12.5,
+  "HC-biased interaction", "PMA", 3, 10.0,
+  "HC-biased interaction", "TNF", 1, 10.5,
+  "HC-biased interaction", "TNF", 2, 8.0,
+  "HC-biased interaction", "TNF", 3, 5.5,
+  "FM-biased interaction", "LPS", 1, 10.0,
+  "FM-biased interaction", "LPS", 2, 7.5,
+  "FM-biased interaction", "LPS", 3, 7.5,
+  "FM-biased interaction", "IL1", 1, 11.0,
+  "FM-biased interaction", "IL1", 2, 7.0,
+  "FM-biased interaction", "IL1", 3, 11.0,
+  "FM-biased interaction", "PMA", 1, 11.2,
+  "FM-biased interaction", "PMA", 2, 7.8,
+  "FM-biased interaction", "PMA", 3, 6.8,
+  "FM-biased interaction", "TNF", 1, 10.0,
+  "FM-biased interaction", "TNF", 2, 7.0,
+  "FM-biased interaction", "TNF", 3, 4.5
+)
+
+ms_labels <- ms_labels %>%
+  mutate(Group_chr = as.character(Group), Stim_chr = as.character(Stimulation)) %>%
+  left_join(
+    label_layout %>% rename(Group_chr = Group, Stim_chr = Stimulation),
+    by = c("Group_chr", "Stim_chr", "horizontal_rank")
+  ) %>%
+  mutate(
+    term_lab = format_label(term),
+    label_fill = lighten_col(unname(stim_cols[as.character(Stimulation)]))
+  )
+
+p_ms <- ggplot(ms_plot_data, aes(x, y)) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", linewidth = 0.4, colour = "grey45") +
+  geom_point(data = filter(ms_plot_data, !significant), colour = "#BEBEBE", size = 1.8, alpha = 0.8) +
+  geom_point(data = filter(ms_plot_data, significant), aes(fill = I(stim_color)), shape = 21,
+             colour = "white", stroke = 0.5, size = 3) +
+  geom_segment(data = ms_labels, aes(x = x, y = y, xend = label_x, yend = label_y),
+               inherit.aes = FALSE, colour = "grey55", linewidth = 0.35, alpha = 0.8) +
+  geom_label(data = ms_labels, aes(x = label_x, y = label_y, label = term_lab, fill = I(label_fill)),
+             inherit.aes = FALSE, size = 2.45, lineheight = 0.90, colour = "#222222",
+             linewidth = 0.18, label.r = unit(0.10, "lines"), label.padding = unit(0.10, "lines")) +
+  facet_grid(Group ~ Stimulation, switch = "y",
+             labeller = labeller(Stimulation = c(LPS = "LPS", IL1 = "IL-1β", PMA = "PMA", TNF = "TNF-α"))) +
+  scale_x_continuous(breaks = NULL, limits = c(-0.03, 1.03), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, ymax_ms), breaks = seq(0, ymax_ms, 2), expand = expansion(mult = c(0.02, 0.02))) +
+  labs(x = "GO:BP terms", y = expression(-log[10]("adjusted P"))) +
+  plot_theme +
+  theme(panel.spacing.x = unit(0.30, "cm"), panel.spacing.y = unit(0.28, "cm"),
+        plot.margin = margin(10, 12, 5, 8))
+
+p_ms
+ggsave("ms_fgsea.png", p_ms, width = 14.5, height = 6.8, dpi = 600, bg = "white")
+ggsave("ms_fgsea.pdf", p_ms, width = 14.5, height = 6.8, bg = "white")
+
+# -----------------------------------------------------------------------------
+# RNA LPS FGSEA plot
+# -----------------------------------------------------------------------------
+
+rna_plot_data <- map_dfr(c("HC_biased", "FM_biased"), function(s) {
+  read_excel(rna_fgsea, sheet = s) %>%
+    transmute(
+      pathway_clean,
+      padj = as.numeric(padj),
+      NES = as.numeric(NES),
+      Stimulation = "LPS",
+      Group = if_else(s == "HC_biased", "HC-biased interaction", "FM-biased interaction")
+    )
+}) %>%
+  mutate(
+    Stimulation = factor(Stimulation, levels = "LPS"),
+    Group = factor(Group, levels = c("HC-biased interaction", "FM-biased interaction"))
+  )
+
+ymax_rna <- 8
+lps_col <- stim_cols["LPS"]
+label_fill <- lighten_col(lps_col)
+
+rna_plot_data <- rna_plot_data %>%
+  filter(!is.na(pathway_clean), !is.na(padj), padj > 0) %>%
+  mutate(significant = padj < 0.05, y = pmin(-log10(padj), ymax_rna)) %>%
+  group_by(Group, Stimulation) %>%
+  mutate(x = if (n() > 1) (sample.int(n()) - 1) / (n() - 1) else 0.5) %>%
+  ungroup() %>%
+  arrange(significant)
+
+force_terms <- c(
+  "Response to molecule of bacterial origin",
+  "Cellular response to biotic stimulus",
+  "Acute inflammatory response"
+)
+
+hc_labels <- rna_plot_data %>%
+  filter(Group == "HC-biased interaction", pathway_clean %in% force_terms) %>%
+  mutate(
+    term_lab = str_wrap(pathway_clean, 22),
+    label_x = case_when(
+      pathway_clean == "Acute inflammatory response" ~ 0.20,
+      pathway_clean == "Cellular response to biotic stimulus" ~ 0.50,
+      pathway_clean == "Response to molecule of bacterial origin" ~ 0.80,
+      TRUE ~ x
+    ),
+    label_y = case_when(
+      pathway_clean == "Acute inflammatory response" ~ 5.2,
+      pathway_clean == "Cellular response to biotic stimulus" ~ 6.2,
+      pathway_clean == "Response to molecule of bacterial origin" ~ 7.2,
+      TRUE ~ y + 1
+    )
+  )
+
+fm_labels <- rna_plot_data %>%
+  filter(Group == "FM-biased interaction", significant) %>%
+  mutate(term_lab = format_label(pathway_clean, 20))
+
+p_rna <- ggplot(rna_plot_data, aes(x, y)) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", linewidth = 0.4, colour = "grey45") +
+  geom_point(data = filter(rna_plot_data, !significant), colour = "#BEBEBE", size = 1.8, alpha = 0.8) +
+  geom_point(data = filter(rna_plot_data, significant), shape = 21, fill = lps_col,
+             colour = "white", stroke = 0.5, size = 3) +
+  geom_segment(data = hc_labels, aes(x = x, y = y, xend = label_x, yend = label_y),
+               inherit.aes = FALSE, colour = "grey55", linewidth = 0.35, alpha = 0.8) +
+  geom_label(data = hc_labels, aes(x = label_x, y = label_y, label = term_lab),
+             inherit.aes = FALSE, size = 2.9, lineheight = 0.92, colour = "#222222",
+             fill = label_fill, linewidth = 0.18, label.r = unit(0.12, "lines"),
+             label.padding = unit(0.14, "lines")) +
+  geom_label_repel(data = fm_labels, aes(x = x, y = y, label = term_lab),
+                   inherit.aes = FALSE, seed = 123, size = 2.9, lineheight = 0.92,
+                   colour = "#222222", fill = label_fill, label.size = 0.18,
+                   label.r = unit(0.12, "lines"), label.padding = unit(0.14, "lines"),
+                   box.padding = 0.65, point.padding = 0.55, nudge_y = 1.4,
+                   force = 5, force_pull = 0.30, direction = "both",
+                   segment.colour = "grey55", segment.size = 0.35,
+                   segment.alpha = 0.8, min.segment.length = 0,
+                   xlim = c(0.06, 0.94), max.overlaps = Inf) +
+  facet_grid(Group ~ Stimulation, switch = "y") +
+  scale_x_continuous(breaks = NULL, limits = c(-0.03, 1.03), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, ymax_rna), breaks = seq(0, ymax_rna, 2), expand = expansion(mult = c(0.02, 0.02))) +
+  labs(x = "GO:BP terms", y = expression(-log[10]("adjusted P"))) +
+  plot_theme +
+  theme(panel.spacing.y = unit(0.25, "cm"), plot.margin = margin(10, 10, 5, 5))
+
+p_rna
+ggsave("rna_fgsea.png", p_rna, width = 7, height = 6, dpi = 600, bg = "white")
+ggsave("rna_fgsea.pdf", p_rna, width = 7, height = 6, bg = "white")
